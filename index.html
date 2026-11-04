@@ -1,0 +1,2568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vibe Cook 离线灵感厨房 — 解决每天吃什么</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-warm: #FAF7F2;
+      --card-bg: #FFFFFF;
+      --accent-orange: #EA580C;
+      --accent-emerald: #059669;
+    }
+    body {
+      font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #F8F6F0;
+      color: #1C1917;
+      overflow-x: hidden;
+    }
+    /* Custom 5-column grid layout for desktop/tablet as requested */
+    .recipe-grid-5 {
+      display: grid;
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+      gap: 0.875rem;
+    }
+    @media (min-width: 520px) {
+      .recipe-grid-5 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (min-width: 760px) {
+      .recipe-grid-5 {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+    }
+    .recipe-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 1rem;
+    }
+    .recipe-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.125rem;
+    }
+    .dish-card {
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .dish-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px -6px rgba(28, 25, 23, 0.12);
+    }
+    .dish-card-unexplored {
+      border-color: #A7F3D0;
+      background: linear-gradient(180deg, #FFFFFF 0%, #F0FDF4 100%);
+    }
+    .dish-card-highfreq {
+      border-color: #FED7AA;
+      background: linear-gradient(180deg, #FFFFFF 0%, #FFF7ED 100%);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #F5F5F4;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #D6D3D1;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #A8A29E;
+    }
+    @keyframes pulse-soft {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    .animate-pulse-soft {
+      animation: pulse-soft 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-orange-500 selection:text-white">
+
+  <!-- Top Header -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-stone-200/80 shadow-sm">
+    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-md shadow-orange-500/20 font-extrabold text-xl">
+          🍳
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-extrabold tracking-tight text-stone-900">Vibe Cook · 灵感私厨</h1>
+            <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">纯离线可交互版</span>
+          </div>
+          <p class="text-xs text-stone-500">跟着做就会 · 频次感知强化，告别每天“吃什么”选择困难</p>
+        </div>
+      </div>
+
+      <!-- Search Input -->
+      <div class="flex-1 max-w-md min-w-[200px]">
+        <div class="relative">
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="搜索菜名、食材（如：鸡蛋、排骨、土豆）或标签..."
+            class="w-full pl-9 pr-8 py-2 text-sm bg-stone-100 hover:bg-stone-100/80 focus:bg-white rounded-xl border border-stone-200 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition"
+          />
+          <span class="absolute left-3 top-2.5 text-stone-400 text-sm">🔍</span>
+          <button
+            id="clearSearchBtn"
+            type="button"
+            title="清空搜索"
+            class="hidden absolute right-2.5 top-2 text-stone-400 hover:text-stone-600 text-sm px-1"
+          >✕</button>
+        </div>
+      </div>
+
+      <!-- Quick Utility Buttons -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <button
+          id="openAddModalBtn"
+          type="button"
+          class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-900 text-white hover:bg-stone-800 transition flex items-center gap-1.5 shadow-sm"
+        >
+          <span>➕</span>
+          <span>新增菜谱</span>
+        </button>
+        <button
+          id="openHistoryModalBtn"
+          type="button"
+          class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-100 text-stone-700 hover:bg-stone-200 transition flex items-center gap-1.5 border border-stone-200"
+        >
+          <span>📅</span>
+          <span>做菜记录</span>
+          <span id="totalCookBadge" class="px-1.5 py-0.2 bg-orange-100 text-orange-700 rounded-full text-[11px] font-bold">0</span>
+        </button>
+        <button
+          id="openDataModalBtn"
+          type="button"
+          class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-100 text-stone-700 hover:bg-stone-200 transition flex items-center gap-1.5 border border-stone-200"
+        >
+          <span>💾</span>
+          <span>备份/管理</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 py-4 space-y-4">
+
+    <!-- Top Frequency & Exploration Dashboard -->
+    <section class="bg-white rounded-2xl border border-stone-200/90 p-4 shadow-sm">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <!-- Left: Frequency Insight Stats -->
+        <div class="space-y-1.5">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-2.5 py-0.5 rounded-md border border-orange-200/60">频率强化与新菜探索引擎</span>
+            <span id="ExplorationHintText" class="text-xs text-stone-600">
+              通过排序直观看到哪些菜做太多次了，督促自己解锁 <strong class="text-emerald-600 font-semibold">0次新菜</strong>！
+            </span>
+          </div>
+          <!-- Progress Bar of Exploration -->
+          <div class="flex items-center gap-4 flex-wrap pt-1">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block"></span>
+              <span class="text-stone-600">高频常做 (≥3次): <strong id="statHighFreq" class="text-stone-900">0</strong> 道</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+              <span class="text-stone-600">尝鲜做过 (1-2次): <strong id="statLowFreq" class="text-stone-900">0</strong> 道</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+              <span class="text-stone-600">待解锁新菜 (0次): <strong id="statUnexplored" class="text-emerald-700 font-bold">0</strong> 道</span>
+            </div>
+            <div class="w-40 h-2 bg-stone-100 rounded-full overflow-hidden flex border border-stone-200/60">
+              <div id="barHighFreq" class="bg-orange-500 h-full transition-all duration-300" style="width: 20%"></div>
+              <div id="barLowFreq" class="bg-amber-400 h-full transition-all duration-300" style="width: 20%"></div>
+              <div id="barUnexplored" class="bg-emerald-500 h-full transition-all duration-300" style="width: 60%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Smart "What to Eat Today" Decision Actions -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            id="pickNewDishBtn"
+            type="button"
+            class="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-sm shadow-emerald-600/20 transition flex items-center gap-1.5"
+          >
+            <span>🌱</span>
+            <span>抽一道【没做过/少做】新菜</span>
+          </button>
+          <button
+            id="pickMealComboBtn"
+            type="button"
+            class="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 shadow-sm shadow-orange-500/20 transition flex items-center gap-1.5"
+          >
+            <span>🍱</span>
+            <span>智能生成今日一餐 (一荤一素一汤)</span>
+          </button>
+          <button
+            id="pickRandomAnyBtn"
+            type="button"
+            class="px-3 py-2 rounded-xl text-xs font-semibold bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200 transition flex items-center gap-1"
+          >
+            <span>🎲</span>
+            <span>随机摇一摇</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Smart Recommendation Result Banner (Hidden until triggered) -->
+      <div id="recommendationBanner" class="hidden mt-3 pt-3 border-t border-stone-200/80 bg-gradient-to-r from-emerald-50/90 via-amber-50/60 to-orange-50/80 rounded-xl p-3 border border-emerald-200/80">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span id="recBannerBadge" class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-600 text-white">今日灵感推荐</span>
+              <h3 id="recBannerTitle" class="text-sm font-bold text-stone-900">为您挑好了今天吃什么！</h3>
+            </div>
+            <p id="recBannerDesc" class="text-xs text-stone-600"></p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              id="recCookAllBtn"
+              type="button"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition"
+            >
+              ✅ 就吃这个！一键打卡 (+1次)
+            </button>
+            <button
+              id="closeRecBannerBtn"
+              type="button"
+              class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-stone-500 hover:bg-stone-200/60 transition"
+            >
+              收起
+            </button>
+          </div>
+        </div>
+        <div id="recBannerCards" class="mt-2.5 grid grid-cols-1 sm:grid-cols-3 gap-2.5"></div>
+      </div>
+    </section>
+
+    <!-- Filter & Sort Control Deck -->
+    <section class="bg-white rounded-2xl border border-stone-200/90 p-3.5 shadow-sm space-y-3">
+      <!-- Row 1: Category Pills + Layout & Sort Controls -->
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        <!-- Categories -->
+        <div id="categoryFilterBar" class="flex items-center gap-1.5 flex-wrap">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- Sort & Column Density Controls -->
+        <div class="flex items-center gap-2 flex-wrap shrink-0">
+          <!-- Frequency Filter Quick Tabs -->
+          <div class="inline-flex rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-xs">
+            <button type="button" data-freq="all" class="freq-tab-btn px-2.5 py-1 rounded-lg font-semibold bg-white text-stone-900 shadow-sm transition">全部状态</button>
+            <button type="button" data-freq="unexplored" class="freq-tab-btn px-2.5 py-1 rounded-lg font-medium text-emerald-700 hover:text-stone-900 transition">✨ 待解锁(0次)</button>
+            <button type="button" data-freq="low" class="freq-tab-btn px-2.5 py-1 rounded-lg font-medium text-stone-600 hover:text-stone-900 transition">🌱 少做(1-2次)</button>
+            <button type="button" data-freq="high" class="freq-tab-btn px-2.5 py-1 rounded-lg font-medium text-orange-700 hover:text-stone-900 transition">🔥 高频(≥3次)</button>
+          </div>
+
+          <!-- Sort Select -->
+          <div class="flex items-center gap-1.5 bg-orange-50/90 border border-orange-200 rounded-xl px-2.5 py-1">
+            <span class="text-xs font-bold text-orange-800">排序:</span>
+            <select id="sortSelect" aria-label="排序方式" class="bg-transparent text-xs font-bold text-orange-950 focus:outline-none cursor-pointer">
+              <option value="freq_desc">🔥 做菜/喜欢次数：从高到低 (强化高频认知)</option>
+              <option value="freq_asc">🌱 做菜/喜欢次数：从低到高 (新菜探索优先)</option>
+              <option value="like_desc">❤️ 喜欢次数：从高到低</option>
+              <option value="time_asc">⚡ 烹饪耗时：从短到长 (快手优先)</option>
+            </select>
+          </div>
+
+          <!-- Grid Column Switcher (Default 5 per row) -->
+          <div class="inline-flex items-center rounded-xl bg-stone-100 p-0.5 border border-stone-200 text-xs" title="切换每行卡片数量">
+            <button type="button" data-cols="5" class="col-mode-btn px-2 py-1 rounded-lg font-bold bg-white text-stone-900 shadow-sm">5菜/行</button>
+            <button type="button" data-cols="4" class="col-mode-btn px-2 py-1 rounded-lg font-medium text-stone-600 hover:text-stone-900">4菜/行</button>
+            <button type="button" data-cols="3" class="col-mode-btn px-2 py-1 rounded-lg font-medium text-stone-600 hover:text-stone-900">3菜/行</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Fridge Ingredient Quick Filter & Time Limit -->
+      <div class="pt-2 border-t border-stone-100 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-xs font-semibold text-stone-500 mr-1">🥬 冰箱食材快筛:</span>
+          <div id="ingredientFilterBar" class="flex items-center gap-1.5 flex-wrap">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-xs font-semibold text-stone-500">⏱ 耗时:</span>
+          <select id="timeFilterSelect" aria-label="耗时筛选" class="text-xs bg-stone-100 border border-stone-200 rounded-lg px-2 py-1 font-medium text-stone-700 focus:outline-none">
+            <option value="0">不限时长</option>
+            <option value="15">≤ 15 分钟 (极速快手)</option>
+            <option value="30">≤ 30 分钟 (日常家常)</option>
+            <option value="60">≤ 60 分钟 (周末好菜)</option>
+          </select>
+          <button
+            id="resetFiltersBtn"
+            type="button"
+            class="text-xs text-stone-500 hover:text-orange-600 font-medium underline px-1"
+          >重置筛选</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Status Summary Line above Grid -->
+    <div class="flex items-center justify-between px-1">
+      <div class="flex items-center gap-2 text-xs text-stone-600">
+        <span>当前展示 <strong id="visibleCountText" class="text-stone-900 font-bold">25</strong> 道菜品</span>
+        <span>·</span>
+        <span id="currentSortExplain" class="text-stone-500">按【做菜次数+喜欢权重】从高到低排列，绿色边框卡片为 0 次待解锁新菜</span>
+      </div>
+      <div class="flex items-center gap-3 text-xs">
+        <button
+          id="toggleDemoDataBtn"
+          type="button"
+          class="text-orange-700 hover:text-orange-800 font-semibold hover:underline"
+        >
+          🧹 清零所有做菜次数 (从0开始)
+        </button>
+      </div>
+    </div>
+
+    <!-- 5-Cards-Per-Row Recipe Grid -->
+    <section id="recipeGridContainer" class="recipe-grid-5">
+      <!-- Populated dynamically by JS -->
+    </section>
+
+    <!-- Empty State -->
+    <div id="emptyStateBox" class="hidden bg-white rounded-2xl border border-stone-200 p-12 text-center space-y-3">
+      <div class="text-4xl">🍲</div>
+      <h3 class="text-base font-bold text-stone-800">没有找到符合当前筛选条件的菜品</h3>
+      <p class="text-xs text-stone-500 max-w-md mx-auto">试试放宽食材或时长限制，或者点击下方按钮恢复全部菜谱。</p>
+      <button
+        id="emptyResetBtn"
+        type="button"
+        class="px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 transition"
+      >恢复全部菜品</button>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-8 border-t border-stone-200/80 bg-white py-4 px-4 text-center text-xs text-stone-500">
+    <div class="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <span>Vibe Cook 离线灵感厨房 · 卡片式 5 列布局 · 做菜频次与喜好感知排序</span>
+      <span>所有数据自动保存在本地浏览器 (LocalStorage)，支持随时导出备份</span>
+    </div>
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: Structured Recipe Detail & Immersive Step-by-Step Cook Mode  -->
+  <!-- ===================================================================== -->
+  <div id="recipeModal" class="fixed inset-0 z-50 hidden bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-stone-200 overflow-hidden">
+      <!-- Modal Top Header -->
+      <div id="modalHeaderBanner" class="px-5 py-4 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-stone-200 flex items-start justify-between gap-4">
+        <div class="flex items-center gap-3.5">
+          <div id="modalDishEmoji" class="w-14 h-14 rounded-2xl bg-white shadow-sm border border-stone-200/80 flex items-center justify-center text-3xl shrink-0">
+            🍳
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span id="modalDishCategory" class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-orange-100 text-orange-800">荤菜</span>
+              <span id="modalFreqBadge" class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-100 text-emerald-800">✨ 待解锁新菜</span>
+            </div>
+            <h2 id="modalDishTitle" class="text-xl font-extrabold text-stone-900 mt-0.5">菜品名称</h2>
+            <p id="modalDishDesc" class="text-xs text-stone-600 mt-0.5">菜品简介</p>
+          </div>
+        </div>
+        <button
+          id="closeRecipeModalBtn"
+          type="button"
+          class="w-8 h-8 rounded-full bg-white/80 hover:bg-white text-stone-500 hover:text-stone-800 flex items-center justify-center border border-stone-200 transition text-sm font-bold shrink-0"
+        >✕</button>
+      </div>
+
+      <!-- Mode Switcher Tabs inside Modal: [结构化备菜清单] vs [沉浸式分步烹饪模式] -->
+      <div class="px-5 py-2.5 bg-stone-50 border-b border-stone-200 flex flex-wrap items-center justify-between gap-2">
+        <div class="inline-flex rounded-xl bg-stone-200/70 p-0.5 text-xs">
+          <button
+            id="tabOverviewBtn"
+            type="button"
+            class="px-3 py-1.5 rounded-lg font-bold bg-white text-stone-900 shadow-sm transition"
+          >📋 备菜清单与步骤总览</button>
+          <button
+            id="tabImmersiveBtn"
+            type="button"
+            class="px-3 py-1.5 rounded-lg font-semibold text-stone-600 hover:text-stone-900 transition"
+          >👨‍🍳 沉浸式分步跟做 (带计时器)</button>
+        </div>
+
+        <!-- Portion Scaler & Metrics -->
+        <div class="flex items-center gap-3 flex-wrap text-xs">
+          <span id="modalMetricTime" class="text-stone-600 font-medium">⏱ 15分钟</span>
+          <span id="modalMetricCal" class="text-stone-600 font-medium">🔥 320 KCAL</span>
+          <span id="modalMetricDiff" class="text-stone-600 font-medium">⭐ 简单</span>
+          <div class="flex items-center gap-1.5 bg-white border border-stone-200 rounded-lg px-2 py-1">
+            <span class="text-stone-500 font-medium">份量缩放:</span>
+            <button id="portionDecBtn" type="button" class="w-5 h-5 rounded bg-stone-100 hover:bg-stone-200 font-bold text-stone-700 flex items-center justify-center">-</button>
+            <span id="portionValueText" class="font-bold text-orange-600 min-w-[2.5rem] text-center">1人份</span>
+            <button id="portionIncBtn" type="button" class="w-5 h-5 rounded bg-stone-100 hover:bg-stone-200 font-bold text-stone-700 flex items-center justify-center">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-y-auto p-5 custom-scrollbar">
+        <!-- VIEW 1: Overview & Prep Checklist -->
+        <div id="modalOverviewSection" class="grid grid-cols-1 md:grid-cols-12 gap-5">
+          <!-- Left Column: Ingredients (with shopping check) & Tools -->
+          <div class="md:col-span-5 space-y-4">
+            <div class="bg-stone-50 rounded-xl p-3.5 border border-stone-200/80 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-stone-700">🛒 食材配料表 (点击可勾选备菜)</h3>
+                <span class="text-[11px] text-stone-400">随份数自动换算</span>
+              </div>
+              <div id="modalIngredientsList" class="space-y-1.5"></div>
+            </div>
+
+            <div class="bg-stone-50 rounded-xl p-3.5 border border-stone-200/80 space-y-2">
+              <h3 class="text-xs font-extrabold uppercase tracking-wider text-stone-700">🔪 所需厨具清单</h3>
+              <div id="modalToolsList" class="flex flex-wrap gap-1.5"></div>
+            </div>
+          </div>
+
+          <!-- Right Column: Structured Step-by-Step Flow -->
+          <div class="md:col-span-7 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-extrabold uppercase tracking-wider text-stone-700">👩‍🍳 标准化制作步骤</h3>
+              <button
+                id="startImmersiveFromOverviewBtn"
+                type="button"
+                class="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1"
+              >进入全屏分步计时跟做 →</button>
+            </div>
+            <div id="modalStepsList" class="space-y-2.5"></div>
+          </div>
+        </div>
+
+        <!-- VIEW 2: Immersive Step-by-Step Cook Mode (Vibe Cook Core) -->
+        <div id="modalImmersiveSection" class="hidden space-y-4">
+          <!-- Step Progress Bar -->
+          <div class="flex items-center justify-between bg-stone-900 text-white rounded-xl p-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <span id="immStepCounter" class="px-2 py-0.5 rounded bg-orange-500 text-xs font-extrabold">STEP 01 / 05</span>
+                <span id="immStepTimeBadge" class="text-xs text-stone-300">预计耗时 2 分钟</span>
+              </div>
+              <h3 id="immStepTitle" class="text-lg font-extrabold mt-1">步骤标题</h3>
+            </div>
+            <!-- Step Timer Box -->
+            <div class="flex items-center gap-2 bg-stone-800 px-3.5 py-2 rounded-xl border border-stone-700">
+              <div class="text-right">
+                <div class="text-[10px] text-stone-400 uppercase">本步倒计时 (STEP CLOCK)</div>
+                <div id="immTimerDisplay" class="text-xl font-mono font-extrabold text-amber-400">02:00</div>
+              </div>
+              <button
+                id="immTimerToggleBtn"
+                type="button"
+                class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-stone-950 hover:bg-amber-400 transition"
+              >▶ 开始计时</button>
+              <button
+                id="immTimerResetBtn"
+                type="button"
+                class="px-2 py-1.5 rounded-lg text-xs text-stone-300 hover:bg-stone-700 transition"
+              >重置</button>
+            </div>
+          </div>
+
+          <!-- Active Step Card -->
+          <div class="bg-amber-50/50 border-2 border-orange-200 rounded-2xl p-6 space-y-4">
+            <p id="immStepInstruction" class="text-base sm:text-lg font-semibold text-stone-900 leading-relaxed"></p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div class="bg-white rounded-xl p-3 border border-emerald-200">
+                <div class="text-[11px] font-bold text-emerald-700 uppercase">🎯 本步产出物 (EXPECTED OUTPUT)</div>
+                <div id="immStepOutput" class="text-xs font-semibold text-stone-800 mt-1"></div>
+              </div>
+              <div class="bg-white rounded-xl p-3 border border-amber-200">
+                <div class="text-[11px] font-bold text-amber-700 uppercase">💡 防翻车指南 (CHEF TIPS)</div>
+                <div id="immStepTip" class="text-xs text-stone-700 mt-1"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step Navigation Controls -->
+          <div class="flex items-center justify-between pt-2">
+            <button
+              id="immPrevStepBtn"
+              type="button"
+              class="px-4 py-2 rounded-xl text-xs font-bold bg-stone-100 text-stone-700 hover:bg-stone-200 transition disabled:opacity-40"
+            >← 上一步</button>
+            <div id="immStepDots" class="flex items-center gap-1.5"></div>
+            <button
+              id="immNextStepBtn"
+              type="button"
+              class="px-5 py-2 rounded-xl text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 transition"
+            >下一步 →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer: Complete Cooking & Frequency Reinforcement -->
+      <div class="px-5 py-3.5 bg-stone-50 border-t border-stone-200 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3 text-xs">
+          <span class="text-stone-600">当前累计做过: <strong id="modalCookCountText" class="text-stone-900 text-sm">0</strong> 次</span>
+          <span>·</span>
+          <span class="text-stone-600">喜欢度: <strong id="modalLikeCountText" class="text-rose-600 text-sm">0</strong> ❤️</span>
+          <button
+            id="modalMinusCookBtn"
+            type="button"
+            class="px-2 py-0.5 rounded bg-stone-200/80 hover:bg-stone-300 text-stone-600 text-[11px] font-medium transition"
+          >-1 修正次数</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            id="modalLikeOnlyBtn"
+            type="button"
+            class="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition"
+          >❤️ 喜欢 +1</button>
+          <button
+            id="modalCompleteCookBtn"
+            type="button"
+            class="px-5 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 shadow-md shadow-orange-500/20 transition"
+          >🎉 今天做了这道菜 (做菜次数 +1)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 2: Add Custom Recipe Modal                                      -->
+  <!-- ===================================================================== -->
+  <div id="addRecipeModal" class="fixed inset-0 z-50 hidden bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl border border-stone-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-stone-200 flex items-center justify-between">
+        <h3 class="text-base font-extrabold text-stone-900">➕ 新增私房菜谱到离线库</h3>
+        <button id="closeAddModalBtn" type="button" class="text-stone-400 hover:text-stone-700 font-bold">✕</button>
+      </div>
+      <form id="addRecipeForm" class="p-5 overflow-y-auto space-y-3.5 text-xs custom-scrollbar">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-stone-700 mb-1">菜品名称 *</label>
+            <input id="newDishName" type="text" required placeholder="例如：外婆红烧肉" class="w-full px-3 py-2 rounded-xl border border-stone-200 focus:border-orange-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block font-bold text-stone-700 mb-1">所属分类 *</label>
+            <select id="newDishCategory" class="w-full px-3 py-2 rounded-xl border border-stone-200 focus:border-orange-500 focus:outline-none">
+              <option value="荤菜">荤菜</option>
+              <option value="素菜">素菜</option>
+              <option value="主食">主食</option>
+              <option value="汤羹">汤羹</option>
+              <option value="水产">水产</option>
+              <option value="早餐">早餐</option>
+              <option value="甜品饮品">甜品饮品</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block font-bold text-stone-700 mb-1">耗时 (分钟)</label>
+            <input id="newDishTime" type="number" value="20" min="1" max="300" class="w-full px-3 py-2 rounded-xl border border-stone-200" />
+          </div>
+          <div>
+            <label class="block font-bold text-stone-700 mb-1">热量 (KCAL)</label>
+            <input id="newDishCal" type="number" value="380" min="10" max="3000" class="w-full px-3 py-2 rounded-xl border border-stone-200" />
+          </div>
+          <div>
+            <label class="block font-bold text-stone-700 mb-1">图标 Emoji</label>
+            <input id="newDishEmoji" type="text" value="🥘" class="w-full px-3 py-2 rounded-xl border border-stone-200 text-center" />
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-stone-700 mb-1">标签 (用逗号分隔)</label>
+          <input id="newDishTags" type="text" placeholder="家常菜, 快手菜, 下饭菜" class="w-full px-3 py-2 rounded-xl border border-stone-200" />
+        </div>
+        <div>
+          <label class="block font-bold text-stone-700 mb-1">主要食材 (用逗号分隔，格式如：鸡蛋 2个, 西红柿 2个)</label>
+          <input id="newDishIngs" type="text" required placeholder="五花肉 500g, 冰糖 20g, 生抽 15ml" class="w-full px-3 py-2 rounded-xl border border-stone-200" />
+        </div>
+        <div>
+          <label class="block font-bold text-stone-700 mb-1">制作步骤 (每行一步)</label>
+          <textarea id="newDishSteps" rows="4" required placeholder="冷水下锅焯水去腥&#10;小火炒出糖色&#10;加入开水慢炖45分钟收汁" class="w-full px-3 py-2 rounded-xl border border-stone-200"></textarea>
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button id="cancelAddModalBtn" type="button" class="px-4 py-2 rounded-xl bg-stone-100 text-stone-700 font-semibold">取消</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600">保存菜谱</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 3: Cooking History Log Modal                                    -->
+  <!-- ===================================================================== -->
+  <div id="historyModal" class="fixed inset-0 z-50 hidden bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl border border-stone-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-stone-200 flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-extrabold text-stone-900">📅 我的做菜打卡记录</h3>
+          <p class="text-xs text-stone-500">每次打卡都会强化对应菜品频次，帮你发现饮食偏好与盲区</p>
+        </div>
+        <button id="closeHistoryModalBtn" type="button" class="text-stone-400 hover:text-stone-700 font-bold">✕</button>
+      </div>
+      <div id="historyListContainer" class="p-5 overflow-y-auto space-y-2 text-xs flex-1 custom-scrollbar"></div>
+      <div class="px-5 py-3 bg-stone-50 border-t border-stone-200 flex justify-between items-center">
+        <button id="clearHistoryBtn" type="button" class="text-xs text-rose-600 hover:underline font-semibold">清空打卡历史日志</button>
+        <button id="doneHistoryModalBtn" type="button" class="px-4 py-1.5 rounded-xl bg-stone-900 text-white text-xs font-bold">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 4: Offline Data Backup / Import / Export Modal                  -->
+  <!-- ===================================================================== -->
+  <div id="dataModal" class="fixed inset-0 z-50 hidden bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl max-w-lg w-full flex flex-col shadow-2xl border border-stone-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-stone-200 flex items-center justify-between">
+        <h3 class="text-base font-extrabold text-stone-900">💾 离线数据备份与恢复</h3>
+        <button id="closeDataModalBtn" type="button" class="text-stone-400 hover:text-stone-700 font-bold">✕</button>
+      </div>
+      <div class="p-5 space-y-4 text-xs">
+        <p class="text-stone-600 leading-relaxed">
+          本页面采用纯离线架构，您的所有<strong>做菜次数、喜欢次数、自定义菜谱与打卡记录</strong>均保存在当前浏览器的本地存储中。您可以随时导出 JSON 文件进行跨设备迁移，或一键恢复初始示例数据。
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <button id="exportJsonBtn" type="button" class="px-4 py-2 rounded-xl bg-stone-900 text-white font-bold hover:bg-stone-800 transition">⬇️ 导出离线备份 (.json)</button>
+          <button id="copyJsonBtn" type="button" class="px-4 py-2 rounded-xl bg-stone-100 text-stone-800 font-semibold border border-stone-200 hover:bg-stone-200 transition">📋 复制数据 JSON</button>
+          <button id="restoreDemoBtn" type="button" class="px-4 py-2 rounded-xl bg-amber-50 text-amber-800 font-semibold border border-amber-200 hover:bg-amber-100 transition">🔄 恢复示例频次数据</button>
+        </div>
+        <div class="space-y-1.5 pt-2 border-t border-stone-200">
+          <label class="block font-bold text-stone-700">粘贴 JSON 数据以导入恢复：</label>
+          <textarea id="importJsonTextarea" rows="4" placeholder='粘贴导出的 JSON 内容...' class="w-full p-2.5 rounded-xl border border-stone-200 font-mono text-[11px]"></textarea>
+          <button id="importJsonBtn" type="button" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition">⬆️ 确认导入并覆盖</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notification -->
+  <div id="toastBox" class="fixed bottom-5 right-5 z-50 hidden transform transition-all duration-300 bg-stone-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-stone-700 flex items-center gap-2.5 text-xs font-semibold max-w-sm">
+    <span id="toastIcon" class="text-base">🎉</span>
+    <span id="toastMessage">操作成功</span>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. INITIAL STRUCTURED RECIPE DATASET (25 Dishes = 5 Rows x 5 Columns)
+    //    Inspired by Vibe Cook (cook.corerevive.cn) structured format
+    // =========================================================================
+    const INITIAL_RECIPES = [
+      {
+        id: "r1",
+        name: "西红柿炒鸡蛋",
+        category: "素菜",
+        emoji: "🍅",
+        time: 10,
+        calories: 280,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 6,
+        likeCount: 8,
+        lastCooked: "2天前",
+        tags: ["国民家常", "快手菜", "酸甜下饭", "鸡蛋", "西红柿"],
+        tools: ["炒锅", "打蛋碗", "菜刀", "砧板"],
+        ingredients: [
+          { name: "西红柿", amount: 2, unit: "个" },
+          { name: "鸡蛋", amount: 3, unit: "个" },
+          { name: "小葱", amount: 15, unit: "g" },
+          { name: "白糖", amount: 5, unit: "g" },
+          { name: "盐", amount: 3, unit: "g" },
+          { name: "食用油", amount: 20, unit: "ml" }
+        ],
+        steps: [
+          { title: "打散鸡蛋与切块", time: 2, desc: "鸡蛋加少许盐充分打散；西红柿洗净切滚刀块，葱花切碎备用。", output: "均匀蛋液与西红柿块", tip: "蛋液里加几滴温水，炒出来更蓬松软嫩。" },
+          { title: "滑炒鸡蛋盛出", time: 2, desc: "热锅凉油，油热后倒入蛋液，快速划散至定型蓬松，立刻盛出备用。", output: "金黄嫩滑的鸡蛋块", tip: "鸡蛋切忌炒太老，八分熟盛出最佳。" },
+          { title: "煸炒番茄出沙", time: 4, desc: "锅中留底油，下葱白爆香，倒入西红柿块中火翻炒，加白糖提鲜促出汁。", output: "浓郁红亮的番茄汤汁", tip: "喜欢汤汁拌饭可加两勺热水。" },
+          { title: "混合调味出锅", time: 2, desc: "倒入炒好的鸡蛋翻炒均匀，吸满汤汁后加盐调味，撒葱花出锅。", output: "酸甜多汁的西红柿炒蛋", tip: "出锅前再放盐，避免西红柿水分流失过快。" }
+        ]
+      },
+      {
+        id: "r2",
+        name: "鸡蛋火腿炒黄瓜",
+        category: "素菜",
+        emoji: "🥒",
+        time: 10,
+        calories: 337,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 4,
+        likeCount: 5,
+        lastCooked: "4天前",
+        tags: ["Vibe同款", "快手菜", "高蛋白", "鸡蛋", "黄瓜"],
+        tools: ["平底锅", "打蛋碗", "菜刀", "砧板"],
+        ingredients: [
+          { name: "黄瓜", amount: 1, unit: "根" },
+          { name: "鸡蛋", amount: 2, unit: "个" },
+          { name: "火腿肠", amount: 1, unit: "根" },
+          { name: "蒜末", amount: 10, unit: "g" },
+          { name: "生抽", amount: 8, unit: "ml" },
+          { name: "盐", amount: 2, unit: "g" }
+        ],
+        steps: [
+          { title: "食材切片改刀", time: 3, desc: "黄瓜洗净斜刀切菱形片，火腿切片，鸡蛋打散。", output: "整齐黄瓜片与火腿片", tip: "黄瓜片切薄一点更容易入味且保持脆感。" },
+          { title: "炒熟鸡蛋盛出", time: 2, desc: "油热下鸡蛋液快速炒熟划散，盛出备用。", output: "嫩鸡蛋碎", tip: "中大火快炒15秒即可。" },
+          { title: "合炒火腿与黄瓜", time: 4, desc: "爆香蒜末，先下火腿片煎出香味，再倒入黄瓜片大火翻炒1分钟。", output: "翠绿散发蒜香的黄瓜火腿", tip: "大火快炒防止黄瓜出水变软。" },
+          { title: "回锅鸡蛋调味", time: 1, desc: "倒入鸡蛋，加生抽与少许盐翻炒均匀即可装盘。", output: "清爽可口的鸡蛋火腿炒黄瓜", tip: "火腿自带咸味，盐要少放。" }
+        ]
+      },
+      {
+        id: "r3",
+        name: "黄焖鸡",
+        category: "荤菜",
+        emoji: "🍗",
+        time: 40,
+        calories: 766,
+        difficulty: "有点难",
+        stars: 3,
+        cookCount: 3,
+        likeCount: 5,
+        lastCooked: "上周",
+        tags: ["Vibe同款", "下饭神器", "鸡肉", "香菇", "浓油赤酱"],
+        tools: ["砂锅/炖锅", "炒锅", "菜刀", "砧板"],
+        ingredients: [
+          { name: "鸡腿肉", amount: 400, unit: "g" },
+          { name: "干香菇", amount: 6, unit: "朵" },
+          { name: "青椒", amount: 1, unit: "个" },
+          { name: "姜片", amount: 15, unit: "g" },
+          { name: "冰糖", amount: 12, unit: "g" },
+          { name: "生抽", amount: 20, unit: "ml" },
+          { name: "蚝油", amount: 15, unit: "ml" }
+        ],
+        steps: [
+          { title: "泡发香菇与焯水", time: 10, desc: "干香菇温水泡发切块（泡香菇水留用）；鸡腿剁块冷水下锅焯水洗净。", output: "干净鸡块与香菇水", tip: "泡香菇的水沉淀后留上层清液炖鸡，鲜味翻倍！" },
+          { title: "炒糖色煸鸡块", time: 5, desc: "锅中少油下冰糖炒出琥珀色，下鸡块与姜片翻炒上色。", output: "红亮诱人的鸡腿块", tip: "小火炒糖色，避免发苦。" },
+          { title: "焖煮入味", time: 20, desc: "加入香菇、生抽、蚝油与泡香菇水没过鸡肉，盖盖中小火焖煮20分钟。", output: "软烂浓香的黄焖鸡煲", tip: "汤汁多留一点用来拌米饭。" },
+          { title: "下青椒收汁", time: 5, desc: "放入青椒块大火收汁2分钟，至汤汁浓稠挂勺即可出锅。", output: "汤汁浓郁的黄焖鸡", tip: "青椒最后放才能保持翠绿爽脆。" }
+        ]
+      },
+      {
+        id: "r4",
+        name: "黔式腊肠娃娃菜",
+        category: "荤菜",
+        emoji: "🥬",
+        time: 15,
+        calories: 520,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 2,
+        likeCount: 3,
+        lastCooked: "5天前",
+        tags: ["Vibe同款", "黔菜", "快手菜", "娃娃菜", "腊肠"],
+        tools: ["炒锅", "菜刀", "砧板"],
+        ingredients: [
+          { name: "娃娃菜", amount: 1, unit: "颗" },
+          { name: "贵州腊肠", amount: 1, unit: "根" },
+          { name: "蒜瓣", amount: 3, unit: "瓣" },
+          { name: "蒸鱼豉油", amount: 10, unit: "ml" }
+        ],
+        steps: [
+          { title: "食材改刀", time: 4, desc: "腊肠斜刀切薄片，娃娃菜洗净纵向切条，大蒜拍扁。", output: "腊肠薄片与娃娃菜条", tip: "菜帮和菜叶可以分开下锅，成熟度更一致。" },
+          { title: "煸出腊肠油脂", time: 3, desc: "空锅不放油或极少油，下腊肠片与蒜瓣小火煸炒至肥肉透明出油。", output: "焦香出油的腊肠片", tip: "用腊肠本身的油脂炒娃娃菜最香。" },
+          { title: "大火快炒娃娃菜", time: 6, desc: "先下娃娃菜帮翻炒1分钟，再下菜叶大火翻炒至断生变软。", output: "油润清甜的腊肠娃娃菜", tip: "全程大火锁住水分。" },
+          { title: "豉油提鲜出锅", time: 2, desc: "沿锅边淋入蒸鱼豉油翻匀即可出锅。", output: "咸香回甜的黔式腊肠娃娃菜", tip: "腊肠本身有咸味，无需额外加盐。" }
+        ]
+      },
+      {
+        id: "r5",
+        name: "鸡蛋三明治",
+        category: "早餐",
+        emoji: "🥪",
+        time: 10,
+        calories: 560,
+        difficulty: "简单",
+        stars: 2,
+        cookCount: 1,
+        likeCount: 2,
+        lastCooked: "1周前",
+        tags: ["Vibe同款", "元气早餐", "鸡蛋", "培根", "10分钟"],
+        tools: ["煮蛋器/汤锅", "平底锅", "搅拌碗", "餐叉", "菜刀", "砧板"],
+        ingredients: [
+          { name: "鸡蛋", amount: 1, unit: "个" },
+          { name: "吐司", amount: 2, unit: "片" },
+          { name: "培根", amount: 2, unit: "片" },
+          { name: "黄油", amount: 10, unit: "g" },
+          { name: "蛋黄酱", amount: 20, unit: "g" },
+          { name: "黑胡椒", amount: 2, unit: "g" }
+        ],
+        steps: [
+          { title: "处理吐司", time: 1, desc: "吐司切去四边备用。", output: "去边柔软吐司", tip: "切下的吐司边可放入平底锅烤脆当零食。" },
+          { title: "煮蛋捣碎拌酱", time: 6, desc: "鸡蛋煮熟剥壳，放入碗中用叉子压碎，加入蛋黄酱、少许盐和黑胡椒拌匀。", output: "绵密鸡蛋沙拉酱", tip: "蛋白保留一点颗粒感口感更好。" },
+          { title: "煎香培根", time: 2, desc: "平底锅融化黄油，放入培根煎至两面微焦出香。", output: "焦香培根片", tip: "也可以顺便把吐司烘烤30秒。" },
+          { title: "组装切块装盘", time: 1, desc: "吐司铺满鸡蛋酱与培根，盖上另一片吐司，对角切开装盘。", output: "切面饱满的鸡蛋三明治", tip: "切之前用保鲜膜包紧再切不会散。" }
+        ]
+      },
+      {
+        id: "r6",
+        name: "陈皮排骨汤",
+        category: "汤羹",
+        emoji: "🍲",
+        time: 90,
+        calories: 365,
+        difficulty: "一般",
+        stars: 2,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["Vibe同款", "粤式靓汤", "排骨", "滋阴润肺", "不辣"],
+        tools: ["砂锅/养生壶", "汤锅"],
+        ingredients: [
+          { name: "猪肋排", amount: 350, unit: "g" },
+          { name: "三年陈皮", amount: 1, unit: "瓣" },
+          { name: "山药", amount: 150, unit: "g" },
+          { name: "姜片", amount: 10, unit: "g" },
+          { name: "盐", amount: 4, unit: "g" }
+        ],
+        steps: [
+          { title: "陈皮泡软刮囊", time: 10, desc: "陈皮用温水泡软，用小勺轻轻刮去内侧白囊以免汤发苦。", output: "去囊陈皮丝", tip: "泡陈皮的水保留倒入汤中更香。" },
+          { title: "排骨冷水焯水", time: 8, desc: "排骨冷水下锅，放姜片煮沸撇去浮沫，温水冲洗干净。", output: "清爽无血沫排骨", tip: "一定要用温水洗，冷水会让肉质紧缩。" },
+          { title: "文火慢煲", time: 60, desc: "排骨、陈皮、姜片入砂锅，加足量开水，小火慢炖60分钟。", output: "陈皮清香浓郁的骨汤", tip: "中途尽量不揭盖加水。" },
+          { title: "下山药煮熟调味", time: 12, desc: "加入去皮山药块继续炖12分钟至软糯，加盐调味即可。", output: "温润甘甜的陈皮排骨汤", tip: "削山药皮记得戴手套防手痒。" }
+        ]
+      },
+      {
+        id: "r7",
+        name: "蜜汁烤鸡翅",
+        category: "荤菜",
+        emoji: "🍖",
+        time: 45,
+        calories: 410,
+        difficulty: "一般",
+        stars: 2,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["Vibe同款", "烤箱/空气炸锅", "鸡肉", "高蛋白", "零失败"],
+        tools: ["烤箱/空气炸锅", "腌制碗", "刷子"],
+        ingredients: [
+          { name: "鸡中翅", amount: 8, unit: "个" },
+          { name: "生抽", amount: 15, unit: "ml" },
+          { name: "蚝油", amount: 10, unit: "ml" },
+          { name: "蜂蜜", amount: 15, unit: "g" },
+          { name: "蒜末", amount: 10, unit: "g" }
+        ],
+        steps: [
+          { title: "改刀腌制", time: 20, desc: "鸡翅两面划两刀，加蒜末、生抽、蚝油抓匀腌制20分钟。", output: "入味鸡中翅", tip: "用牙签扎小孔更易快速入味。" },
+          { title: "第一轮烘烤", time: 15, desc: "空气炸锅或烤箱200度烘烤15分钟，中途翻面一次。", output: "表面金黄的鸡翅", tip: "鸡皮朝上烤出油脂。" },
+          { title: "刷蜂蜜水复烤", time: 5, desc: "表面均匀刷一层蜂蜜水，再烤5分钟至红亮焦香。", output: "外焦里嫩的蜜汁烤鸡翅", tip: "刷蜂蜜后注意观察防止焦黑。" }
+        ]
+      },
+      {
+        id: "r8",
+        name: "蒜蓉粉丝蒸虾",
+        category: "水产",
+        emoji: "🦐",
+        time: 20,
+        calories: 290,
+        difficulty: "一般",
+        stars: 2,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["海鲜水产", "低脂高蛋白", "虾", "蒸菜", "宴客硬菜"],
+        tools: ["蒸锅", "炒锅", "菜刀"],
+        ingredients: [
+          { name: "鲜虾", amount: 12, unit: "只" },
+          { name: "龙口粉丝", amount: 1, unit: "把" },
+          { name: "大蒜", amount: 2, unit: "头" },
+          { name: "蒸鱼豉油", amount: 20, unit: "ml" },
+          { name: "葱花", amount: 10, unit: "g" }
+        ],
+        steps: [
+          { title: "泡软粉丝与开背虾", time: 8, desc: "粉丝温水泡软铺在盘底；鲜虾去虾线、开背展平摆在粉丝上。", output: "造型整齐的鲜虾粉丝盘", tip: "虾筋轻轻切断防止蒸的时候卷曲。" },
+          { title: "熬制金银蒜蓉酱", time: 4, desc: "一半蒜末小火炸至微黄，倒入另一半生蒜末、生抽、少许糖拌匀。", output: "香气扑鼻的金银蒜蓉", tip: "蒜末炸到微黄即可关火，余温会继续加热。" },
+          { title: "大火蒸制淋热油", time: 8, desc: "蒜蓉铺在虾背上，水开上锅大火蒸5分钟，出锅淋蒸鱼豉油与热油葱花。", output: "鲜美入味的蒜蓉粉丝蒸虾", tip: "蒸虾严格控制在5-6分钟，肉质最弹牙。" }
+        ]
+      },
+      {
+        id: "r9",
+        name: "青椒肉丝",
+        category: "荤菜",
+        emoji: "🫑",
+        time: 15,
+        calories: 420,
+        difficulty: "一般",
+        stars: 2,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["下饭菜", "中式炒菜", "猪肉", "快手菜"],
+        tools: ["炒锅", "菜刀", "砧板"],
+        ingredients: [
+          { name: "猪里脊肉", amount: 200, unit: "g" },
+          { name: "青椒", amount: 3, unit: "个" },
+          { name: "生抽", amount: 15, unit: "ml" },
+          { name: "淀粉", amount: 5, unit: "g" },
+          { name: "料酒", amount: 5, unit: "ml" }
+        ],
+        steps: [
+          { title: "切丝与上浆", time: 5, desc: "里脊肉切细丝，加生抽、料酒、水淀粉抓匀封油；青椒去籽切丝。", output: "滑嫩肉丝与青椒丝", tip: "顺着纹理或逆纹理切丝粗细均匀。" },
+          { title: "热锅凉油滑肉丝", time: 3, desc: "下肉丝快速滑散至变色八分熟盛出。", output: "嫩滑里脊肉丝", tip: "肉丝变色立即盛出防老。" },
+          { title: "大火合炒出锅", time: 4, desc: "下青椒丝加少许盐炒至断生，倒入肉丝与少许生抽大火翻匀出锅。", output: "鲜香脆嫩的青椒肉丝", tip: "汤汁包裹肉丝最下饭。" }
+        ]
+      },
+      {
+        id: "r10",
+        name: "麻婆豆腐",
+        category: "素菜",
+        emoji: "🌶️",
+        time: 15,
+        calories: 310,
+        difficulty: "一般",
+        stars: 2,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["川菜经典", "麻辣下饭", "豆腐", "快手菜"],
+        tools: ["炒锅", "汤勺"],
+        ingredients: [
+          { name: "嫩豆腐", amount: 1, unit: "盒" },
+          { name: "肉末", amount: 50, unit: "g" },
+          { name: "郫县豆瓣酱", amount: 15, unit: "g" },
+          { name: "花椒粉", amount: 3, unit: "g" },
+          { name: "水淀粉", amount: 30, unit: "ml" }
+        ],
+        steps: [
+          { title: "豆腐切块盐水焯烫", time: 4, desc: "豆腐切2cm方块，放入淡盐沸水中焯烫1分钟捞出沥干。", output: "紧实不易碎的豆腐块", tip: "淡盐水焯烫能去除豆腥味且炒时不碎。" },
+          { title: "炒酥肉末与豆瓣酱", time: 3, desc: "下肉末炒散吐油，加入郫县豆瓣酱、蒜末炒出红油。", output: "红亮浓郁的肉末酱底", tip: "小火炒豆瓣酱才能出红油不糊锅。" },
+          { title: "煨煮与三次勾芡", time: 6, desc: "加半碗热水，滑入豆腐煮3分钟，分2-3次淋入水淀粉推匀，撒花椒面与葱花。", output: "麻辣鲜香烫嫩的麻婆豆腐", tip: "用手勺背面轻推豆腐，切勿来回翻铲。" }
+        ]
+      },
+      {
+        id: "r11",
+        name: "酸辣土豆丝",
+        category: "素菜",
+        emoji: "🥔",
+        time: 12,
+        calories: 210,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["国民快手", "土豆", "酸辣爽脆", "15分钟内"],
+        tools: ["炒锅", "菜刀/擦丝器", "水盆"],
+        ingredients: [
+          { name: "黄心土豆", amount: 2, unit: "个" },
+          { name: "干辣椒", amount: 4, unit: "个" },
+          { name: "白醋", amount: 15, unit: "ml" },
+          { name: "蒜末", amount: 8, unit: "g" },
+          { name: "盐", amount: 3, unit: "g" }
+        ],
+        steps: [
+          { title: "切丝淘洗去淀粉", time: 5, desc: "土豆切细丝，用清水淘洗2遍洗掉表面多余淀粉，沥干水分。", output: "清爽不粘连的土豆丝", tip: "洗掉淀粉是土豆丝爽脆不粘锅的核心！" },
+          { title: "炝锅大火快炒", time: 4, desc: "油热下干辣椒段与蒜末爆香，倒入土豆丝先淋一半白醋，大火翻炒1分钟。", output: "半透明爽脆土豆丝", tip: "刚下锅淋醋锁住脆感。" },
+          { title: "锅边烹醋出锅", time: 2, desc: "加盐调味，出锅前沿锅边再淋少许醋翻匀装盘。", output: "酸辣爽脆的土豆丝", tip: "全程大火不超过2分钟。" }
+        ]
+      },
+      {
+        id: "r12",
+        name: "可乐鸡翅",
+        category: "荤菜",
+        emoji: "🥤",
+        time: 25,
+        calories: 480,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["新手零失败", "鸡肉", "甜口下饭", "家常菜"],
+        tools: ["平底锅/炒锅"],
+        ingredients: [
+          { name: "鸡中翅", amount: 8, unit: "个" },
+          { name: "可乐", amount: 250, unit: "ml" },
+          { name: "生抽", amount: 15, unit: "ml" },
+          { name: "姜片", amount: 10, unit: "g" }
+        ],
+        steps: [
+          { title: "鸡翅划刀煎至金黄", time: 8, desc: "鸡翅两面划刀，少油下锅伴随姜片中小火慢煎至两面金黄。", output: "表皮焦黄的鸡中翅", tip: "擦干水分再下锅不会溅油。" },
+          { title: "倒入可乐焖煮", time: 12, desc: "倒入可乐没过鸡翅，加生抽，盖盖中小火焖煮12分钟。", output: "吸饱可乐焦糖香的鸡翅", tip: "务必用含糖原味可乐才能收出浓稠汁。" },
+          { title: "大火收汁", time: 5, desc: "开盖转大火收汁至汤汁浓稠包裹鸡翅，撒白芝麻出锅。", output: "红亮诱人的可乐鸡翅", tip: "最后1分钟盯紧锅防焦。" }
+        ]
+      },
+      {
+        id: "r13",
+        name: "葱油拌面",
+        category: "主食",
+        emoji: "🍜",
+        time: 15,
+        calories: 510,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["一人食主食", "快手面食", "浓香扑鼻", "15分钟内"],
+        tools: ["煮锅", "平底锅"],
+        ingredients: [
+          { name: "细圆面条", amount: 150, unit: "g" },
+          { name: "小葱", amount: 80, unit: "g" },
+          { name: "生抽", amount: 20, unit: "ml" },
+          { name: "老抽", amount: 8, unit: "ml" },
+          { name: "白糖", amount: 6, unit: "g" }
+        ],
+        steps: [
+          { title: "慢炸葱油与料汁", time: 7, desc: "小葱切长段，冷油下锅小火慢炸至葱段焦黄酥脆，倒入生抽、老抽、白糖煮冒泡关火。", output: "浓香海派葱油汁", tip: "葱段擦干水分再下锅。" },
+          { title: "煮面过凉或捞出", time: 5, desc: "水开下面条煮至断生且有筋道，捞出控干水分放入碗中。", output: "爽滑劲道面条", tip: "不要煮太软烂。" },
+          { title: "浇汁拌匀", time: 1, desc: "浇上两勺葱油酱汁与焦香葱段，趁热拌匀开吃。", output: "根根裹满酱汁的葱油拌面", tip: "加一个煎荷包蛋绝配！" }
+        ]
+      },
+      {
+        id: "r14",
+        name: "冬瓜丸子汤",
+        category: "汤羹",
+        emoji: "🥣",
+        time: 25,
+        calories: 260,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["清淡靓汤", "猪肉", "冬瓜", "低脂清热"],
+        tools: ["汤锅", "搅拌碗"],
+        ingredients: [
+          { name: "冬瓜", amount: 250, unit: "g" },
+          { name: "猪肉馅", amount: 180, unit: "g" },
+          { name: "葱姜水", amount: 20, unit: "ml" },
+          { name: "淀粉", amount: 8, unit: "g" },
+          { name: "香菜/葱花", amount: 10, unit: "g" }
+        ],
+        steps: [
+          { title: "肉馅搅打上劲", time: 6, desc: "猪肉馅加盐、白胡椒、淀粉与葱姜水，顺着一个方向搅打上劲；冬瓜切片。", output: "粘稠有弹性的肉丸馅", tip: "顺时针搅打3分钟丸子才Q弹不散。" },
+          { title: "微沸下丸子", time: 8, desc: "锅中水烧至锅底冒小泡（微沸），用虎口挤出肉丸下锅，全部定型后转中火。", output: "白嫩浮起的鲜肉丸", tip: "切忌大火滚水下丸子，会把丸子冲散。" },
+          { title: "下冬瓜煮透明", time: 8, desc: "放入冬瓜片煮至半透明软熟，加盐、香油、葱花即可出锅。", output: "清鲜甘甜的冬瓜丸子汤", tip: "出锅滴两滴香油提香。" }
+        ]
+      },
+      {
+        id: "r15",
+        name: "土豆炖牛腩",
+        category: "荤菜",
+        emoji: "🥩",
+        time: 75,
+        calories: 680,
+        difficulty: "有点难",
+        stars: 3,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["周末硬菜", "牛肉", "土豆", "暖胃炖菜"],
+        tools: ["炖锅/高压锅", "炒锅"],
+        ingredients: [
+          { name: "牛腩", amount: 450, unit: "g" },
+          { name: "土豆", amount: 2, unit: "个" },
+          { name: "胡萝卜", amount: 1, unit: "根" },
+          { name: "西红柿", amount: 1, unit: "个" },
+          { name: "生抽", amount: 25, unit: "ml" }
+        ],
+        steps: [
+          { title: "牛腩焯水煸香", time: 12, desc: "牛腩切块冷水焯水洗净；锅中下葱姜八角与西红柿块炒出汁，下牛腩翻炒。", output: "裹满茄汁酱香的牛腩", tip: "加一个西红柿同炖会让牛肉更容易软烂。" },
+          { title: "慢炖牛腩", time: 45, desc: "加足量开水与生抽，小火慢炖45分钟（高压锅仅需20分钟）。", output: "酥烂入味的牛腩汤底", tip: "必须加开水！" },
+          { title: "加入土豆胡萝卜收汁", time: 18, desc: "放入切块的土豆与胡萝卜继续炖15分钟至软绵，大火收浓汤汁。", output: "浓稠软糯的土豆炖牛腩", tip: "土豆用勺子掰块比刀切更容易起沙浓汤。" }
+        ]
+      },
+      {
+        id: "r16",
+        name: "干煸四季豆",
+        category: "素菜",
+        emoji: "🫘",
+        time: 15,
+        calories: 295,
+        difficulty: "一般",
+        stars: 2,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["川味下饭", "中式炒菜", "干香微辣", "快手菜"],
+        tools: ["炒锅"],
+        ingredients: [
+          { name: "四季豆", amount: 300, unit: "g" },
+          { name: "肉末", amount: 40, unit: "g" },
+          { name: "干辣椒", amount: 5, unit: "个" },
+          { name: "蒜末", amount: 10, unit: "g" }
+        ],
+        steps: [
+          { title: "摘洗四季豆", time: 4, desc: "四季豆撕去老筋洗净，掰成5cm长段并彻底控干水分。", output: "干爽四季豆段", tip: "四季豆一定要做熟透才能食用。" },
+          { title: "少油慢煸虎皮纹", time: 7, desc: "锅中放比平时稍多一点的油，中小火将四季豆慢慢煸炒至表皮起皱微焦盛出。", output: "起皱熟透的虎皮四季豆", tip: "用煸炒代替油炸更健康省油。" },
+          { title: "炒香肉末干辣椒合炒", time: 4, desc: "底油炒散肉末、蒜末与干辣椒，倒回四季豆加生抽、少许盐大火翻匀。", output: "干香微辣的干煸四季豆", tip: "出锅前撒一点白芝麻更香。" }
+        ]
+      },
+      {
+        id: "r17",
+        name: "滑蛋虾仁",
+        category: "水产",
+        emoji: "🍤",
+        time: 12,
+        calories: 320,
+        difficulty: "简单",
+        stars: 2,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["粤式家常", "鸡蛋", "虾", "高蛋白", "老少皆宜"],
+        tools: ["不粘平底锅", "打蛋碗"],
+        ingredients: [
+          { name: "鲜虾仁", amount: 150, unit: "g" },
+          { name: "鸡蛋", amount: 4, unit: "个" },
+          { name: "水淀粉", amount: 15, unit: "ml" },
+          { name: "葱花", amount: 10, unit: "g" },
+          { name: "盐", amount: 3, unit: "g" }
+        ],
+        steps: [
+          { title: "虾仁滑熟", time: 4, desc: "虾仁加少许盐和白胡椒抓匀，下锅煎炒至变红卷曲盛出。", output: "Q弹熟虾仁", tip: "虾仁先煎熟再混入蛋液，成熟度最完美。" },
+          { title: "调制嫩滑蛋液", time: 2, desc: "4个鸡蛋打散，加入水淀粉、盐、葱花以及炒好的虾仁拌匀。", output: "虾仁混合蛋液", tip: "加一勺水淀粉是滑蛋不老不出水的秘诀。" },
+          { title: "小火推炒凝固", time: 3, desc: "平底锅油热转中小火，倒入虾仁蛋液，用铲子从边缘向中间轻轻推炒至八分凝固立即关火。", output: "嫩滑如布丁的滑蛋虾仁", tip: "利用锅的余温让蛋液达到最佳嫩度。" }
+        ]
+      },
+      {
+        id: "r18",
+        name: "香菇滑鸡煲仔饭",
+        category: "主食",
+        emoji: "煲",
+        time: 35,
+        calories: 640,
+        difficulty: "一般",
+        stars: 2,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["一锅出", "粤式主食", "鸡肉", "香菇", "黄金锅巴"],
+        tools: ["砂锅/电饭煲"],
+        ingredients: [
+          { name: "丝苗米/大米", amount: 150, unit: "g" },
+          { name: "鸡腿肉", amount: 200, unit: "g" },
+          { name: "鲜香菇", amount: 4, unit: "朵" },
+          { name: "广式腊肠", amount: 1, unit: "根" },
+          { name: "青菜", amount: 3, unit: "棵" },
+          { name: "煲仔饭酱汁", amount: 25, unit: "ml" }
+        ],
+        steps: [
+          { title: "浸泡大米与腌制滑鸡", time: 15, desc: "大米提前泡水15分钟；鸡腿去骨切块伴香菇片、生抽、蚝油、淀粉抓匀腌制。", output: "吸饱水分的米粒与嫩滑鸡块", tip: "腌鸡肉最后封一勺花生油锁住水分。" },
+          { title: "砂锅煮米饭", time: 10, desc: "砂锅刷薄油，倒入大米和1.2倍水，大火煮开转小火煮至表面水快干（出现蜂窝孔）。", output: "蜂窝状半熟米饭", tip: "米水比例约1:1.2最适合做煲仔饭。" },
+          { title: "铺码食材淋油焖锅巴", time: 10, desc: "铺上滑鸡香菇和腊肠片，沿锅边淋一圈油，盖盖小火焖10分钟，放烫青菜淋酱汁。", output: "锅巴焦香的香菇滑鸡煲仔饭", tip: "沿锅盖边缘淋油能轻松形成金黄脆锅巴。" }
+        ]
+      },
+      {
+        id: "r19",
+        name: "手撕包菜",
+        category: "素菜",
+        emoji: "🥗",
+        time: 10,
+        calories: 190,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["10分钟快手", "包菜/青菜", "脆爽下饭", "湘味家常"],
+        tools: ["炒锅"],
+        ingredients: [
+          { name: "圆包菜", amount: 300, unit: "g" },
+          { name: "五花肉薄片", amount: 40, unit: "g" },
+          { name: "蒜片", amount: 10, unit: "g" },
+          { name: "干辣椒", amount: 3, unit: "个" },
+          { name: "蒸鱼豉油", amount: 12, unit: "ml" }
+        ],
+        steps: [
+          { title: "手撕包菜洗净控干", time: 4, desc: "包菜用手撕成大片，去除硬梗，洗净后彻底甩干水分。", output: "干爽包菜叶", tip: "手撕比刀切断面更易吸附汤汁。" },
+          { title: "煸出猪油焦香", time: 3, desc: "锅中下五花肉薄片煸出猪油，下蒜片、干辣椒爆香。", output: "焦香五花肉底油", tip: "没有五花肉可直接用植物油加一勺猪油。" },
+          { title: "大火爆炒淋豉油", time: 3, desc: "倒入包菜大火快炒1分钟至微微发软，沿锅边淋入蒸鱼豉油和少许陈醋出锅。", output: "清脆鲜香的手撕包菜", tip: "切勿加水，干炒才有锅气。" }
+        ]
+      },
+      {
+        id: "r20",
+        name: "红烧鱼头",
+        category: "水产",
+        emoji: "🐟",
+        time: 45,
+        calories: 333,
+        difficulty: "有点难",
+        stars: 3,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["Vibe同款", "红烧下饭", "水产", "高蛋白", "硬菜"],
+        tools: ["大炒锅"],
+        ingredients: [
+          { name: "胖头鱼头", amount: 600, unit: "g" },
+          { name: "生姜", amount: 25, unit: "g" },
+          { name: "大蒜", amount: 6, unit: "瓣" },
+          { name: "生抽", amount: 25, unit: "ml" },
+          { name: "老抽", amount: 10, unit: "ml" },
+          { name: "料酒", amount: 20, unit: "ml" }
+        ],
+        steps: [
+          { title: "去黑膜清洗腌制", time: 10, desc: "鱼头对半劈开，彻底洗净鱼腹黑膜与腮，抹少许盐与料酒去腥。", output: "干净无腥味的鱼头", tip: "鱼肚子里的黑膜是腥味来源，务必刮干净。" },
+          { title: "煎鱼定型", time: 8, desc: "热锅润油撒少许盐，鱼头擦干下锅中小火煎至两面微黄，下姜蒜爆香。", output: "焦香完整的煎鱼头", tip: "刚下锅3分钟内不要翻动鱼头。" },
+          { title: "红烧焖煮收汁", time: 25, desc: "烹入料酒、生抽、老抽与开水，中火炖煮20分钟，不断将汤汁浇在鱼头上收浓。", output: "胶质满满的红烧鱼头", tip: "加一块嫩豆腐同炖更是美味。" }
+        ]
+      },
+      {
+        id: "r21",
+        name: "紫菜蛋花汤",
+        category: "汤羹",
+        emoji: "🥚",
+        time: 8,
+        calories: 120,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["8分钟极速", "鸡蛋", "低卡汤品", "百搭餐汤"],
+        tools: ["汤锅", "打蛋碗"],
+        ingredients: [
+          { name: "免洗紫菜", amount: 10, unit: "g" },
+          { name: "鸡蛋", amount: 2, unit: "个" },
+          { name: "虾皮", amount: 8, unit: "g" },
+          { name: "香油", amount: 5, unit: "ml" },
+          { name: "葱花", amount: 8, unit: "g" }
+        ],
+        steps: [
+          { title: "紫菜虾皮入碗", time: 2, desc: "紫菜撕碎与虾皮、葱花、盐、香油一起放入大汤碗中；鸡蛋打散。", output: "备好的紫菜汤底碗", tip: "虾皮自带鲜咸味。" },
+          { title: "滚水淋蛋花", time: 4, desc: "锅中水烧开后转最小火，将蛋液呈细线状画圈淋入锅中，静置5秒轻轻推开。", output: "薄如蝉翼的漂亮蛋花", tip: "关小火再淋蛋液，蛋花才成片不浑汤。" },
+          { title: "冲入汤碗", time: 2, desc: "将滚烫的蛋花汤直接冲入紫菜虾皮碗中激发出香味即可。", output: "鲜掉眉毛的紫菜蛋花汤", tip: "也可加一点点水淀粉让蛋花悬浮。" }
+        ]
+      },
+      {
+        id: "r22",
+        name: "黑椒牛柳炒意面",
+        category: "主食",
+        emoji: "🍝",
+        time: 20,
+        calories: 580,
+        difficulty: "一般",
+        stars: 2,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["西式简餐", "牛肉", "一人食主食", "高蛋白"],
+        tools: ["煮锅", "平底锅"],
+        ingredients: [
+          { name: "意大利面", amount: 120, unit: "g" },
+          { name: "牛里脊", amount: 120, unit: "g" },
+          { name: "洋葱", amount: 50, unit: "g" },
+          { name: "彩椒", amount: 60, unit: "g" },
+          { name: "黑胡椒酱", amount: 30, unit: "g" }
+        ],
+        steps: [
+          { title: "煮熟意面", time: 10, desc: "水开加一勺盐，放入意面煮8-10分钟至无硬芯捞出拌少许橄榄油。", output: "弹牙意大利面", tip: "留两勺煮面水待会儿炒面用。" },
+          { title: "滑炒牛柳与配菜", time: 5, desc: "牛柳切条抓淀粉滑炒至变色，下洋葱丝和彩椒条炒香。", output: "鲜嫩牛柳与彩椒", tip: "牛柳七八分熟最嫩。" },
+          { title: "黑椒酱合炒", time: 5, desc: "倒入意面、黑胡椒酱与两勺煮面水，大火翻炒均匀裹满酱汁装盘。", output: "茶餐厅同款黑椒牛柳意面", tip: "煮面水含小麦淀粉，能让酱汁更好挂在面上。" }
+        ]
+      },
+      {
+        id: "r23",
+        name: "凉拌手撕鸡丝",
+        category: "荤菜",
+        emoji: "🥗",
+        time: 20,
+        calories: 310,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["减脂高蛋白", "鸡肉", "黄瓜", "清爽开胃"],
+        tools: ["煮锅", "大拌碗"],
+        ingredients: [
+          { name: "鸡胸肉/鸡腿", amount: 250, unit: "g" },
+          { name: "黄瓜", amount: 1, unit: "根" },
+          { name: "蒜末", amount: 10, unit: "g" },
+          { name: "生抽", amount: 15, unit: "ml" },
+          { name: "香醋", amount: 15, unit: "ml" },
+          { name: "辣椒油", amount: 10, unit: "ml" }
+        ],
+        steps: [
+          { title: "煮熟鸡肉过凉", time: 12, desc: "鸡肉冷水下锅加葱姜料酒煮12分钟至熟透，捞出浸凉水后顺纹理撕成细丝。", output: "不柴多汁的手撕鸡丝", tip: "用擀面杖先轻轻敲松鸡胸肉，撕出来又快又细。" },
+          { title: "调制灵魂凉拌汁", time: 4, desc: "碗中放蒜末、生抽、香醋、少许白糖、辣椒油与白芝麻拌匀。", output: "酸辣开胃凉拌汁", tip: "加少许花生碎口感层次更丰富。" },
+          { title: "抓拌黄瓜丝装盘", time: 4, desc: "黄瓜切丝垫底或与鸡丝同放，淋入料汁抓拌均匀即可。", output: "清爽低脂的凉拌手撕鸡丝", tip: "随拌随吃防止黄瓜出水。" }
+        ]
+      },
+      {
+        id: "r24",
+        name: "本帮红烧肉",
+        category: "荤菜",
+        emoji: "🥘",
+        time: 60,
+        calories: 820,
+        difficulty: "有点难",
+        stars: 3,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["经典硬菜", "猪肉", "浓油赤酱", "解馋满足"],
+        tools: ["炖锅/砂锅", "炒锅"],
+        ingredients: [
+          { name: "带皮五花肉", amount: 500, unit: "g" },
+          { name: "冰糖", amount: 25, unit: "g" },
+          { name: "生抽", amount: 25, unit: "ml" },
+          { name: "老抽", amount: 10, unit: "ml" },
+          { name: "黄酒/花雕", amount: 50, unit: "ml" }
+        ],
+        steps: [
+          { title: "切块焯水煸油", time: 12, desc: "五花肉切3cm方丁冷水焯水；温水洗净后入干锅中小火煸炒至四面微黄吐油。", output: "肥而不腻的微焦五花肉丁", tip: "倒掉煸出的多余猪油，吃起来一点不腻。" },
+          { title: "炒糖色加黄酒慢炖", time: 40, desc: "加冰糖炒上色，倒入黄酒、生抽、老抽与没过肉的开水，小火慢炖40分钟。", output: "酥软红亮的红烧肉", tip: "黄酒去腥增香效果远胜普通料酒。" },
+          { title: "大火收汁挂亮", time: 8, desc: "开盖转大火不断翻炒收汁，至汤汁浓稠包裹每一块肉即可。", output: "晶莹剔透的本帮红烧肉", tip: "可顺手放几个水煮蛋一起卤！" }
+        ]
+      },
+      {
+        id: "r25",
+        name: "印度香料奶茶 (Masala Chai)",
+        category: "甜品饮品",
+        emoji: "☕",
+        time: 10,
+        calories: 135,
+        difficulty: "简单",
+        stars: 1,
+        cookCount: 0,
+        likeCount: 0,
+        lastCooked: "从未做过",
+        tags: ["Vibe同款", "暖心热饮", "红茶牛奶", "10分钟"],
+        tools: ["小奶锅", "滤网"],
+        ingredients: [
+          { name: "红茶茶叶", amount: 8, unit: "g" },
+          { name: "纯牛奶", amount: 200, unit: "ml" },
+          { name: "生姜薄片", amount: 5, unit: "g" },
+          { name: "肉桂/豆蔻(可选)", amount: 2, unit: "g" },
+          { name: "红糖/白糖", amount: 10, unit: "g" }
+        ],
+        steps: [
+          { title: "煮沸香料与红茶底", time: 4, desc: "奶锅加100ml水与姜片、香料煮沸2分钟，加入红茶叶小火煮出浓茶汤。", output: "琥珀色姜香浓茶基底", tip: "生姜拍裂更能释放暖胃香气。" },
+          { title: "加入牛奶拉煮", time: 4, desc: "倒入纯牛奶与红糖，中小火煮至微沸冒泡后关小火再煨2分钟。", output: "丝滑醇厚的香料奶茶", tip: "注意看锅防止牛奶扑锅溢出。" },
+          { title: "过滤入杯享用", time: 2, desc: "用细滤网滤掉茶叶与香料渣，倒入马克杯趁热饮用。", output: "浓郁治愈的印度香料奶茶", tip: "搭配鸡蛋三明治就是满分早餐。" }
+        ]
+      }
+    ];
+
+    const QUICK_INGREDIENTS = [
+      { label: "🥚 鸡蛋", keyword: "鸡蛋" },
+      { label: "🍅 西红柿", keyword: "西红柿" },
+      { label: "🥔 土豆", keyword: "土豆" },
+      { label: "🐔 鸡肉", keyword: "鸡" },
+      { label: "🐷 猪肉/排骨", keyword: "猪" },
+      { label: "🐮 牛肉", keyword: "牛" },
+      { label: "🦐 虾/鱼水产", keyword: "虾" },
+      { label: "🥒 黄瓜", keyword: "黄瓜" },
+      { label: "🥬 娃娃菜/包菜", keyword: "菜" },
+      { label: "🌶️ 豆腐", keyword: "豆腐" }
+    ];
+
+    const CATEGORIES = ["全部", "荤菜", "素菜", "主食", "汤羹", "水产", "早餐", "甜品饮品"];
+
+    const STORAGE_KEY_RECIPES = "vibe_cook_offline_recipes_v1";
+    const STORAGE_KEY_HISTORY = "vibe_cook_offline_history_v1";
+
+    // =========================================================================
+    // 2. APPLICATION STATE
+    // =========================================================================
+    let state = {
+      recipes: [],
+      history: [],
+      search: "",
+      category: "全部",
+      freqFilter: "all", // 'all' | 'unexplored' | 'low' | 'high'
+      sortBy: "freq_desc", // 'freq_desc' | 'freq_asc' | 'like_desc' | 'time_asc'
+      selectedIngredient: "",
+      maxTime: 0,
+      colsPerRow: 5,
+      // Active Modal Dish & Immersive State
+      activeRecipeId: null,
+      portionMultiplier: 1,
+      checkedIngredients: {},
+      modalTab: "overview", // 'overview' | 'immersive'
+      immStepIndex: 0,
+      timerSecondsLeft: 0,
+      timerRunning: false,
+      timerIntervalId: null,
+      recommendedIds: []
+    };
+
+    // =========================================================================
+    // 3. LOCAL STORAGE & AUDIO HELPERS (Sandbox Safe)
+    // =========================================================================
+    function loadFromStorage() {
+      try {
+        const rawRecipes = localStorage.getItem(STORAGE_KEY_RECIPES);
+        const rawHistory = localStorage.getItem(STORAGE_KEY_HISTORY);
+        if (rawRecipes) {
+          state.recipes = JSON.parse(rawRecipes);
+        } else {
+          state.recipes = JSON.parse(JSON.stringify(INITIAL_RECIPES));
+        }
+        if (rawHistory) {
+          state.history = JSON.parse(rawHistory);
+        } else {
+          state.history = [
+            { dishName: "西红柿炒鸡蛋", emoji: "🍅", date: "示例记录 · 2天前", countAfter: 6 },
+            { dishName: "鸡蛋火腿炒黄瓜", emoji: "🥒", date: "示例记录 · 4天前", countAfter: 4 },
+            { dishName: "黄焖鸡", emoji: "🍗", date: "示例记录 · 上周", countAfter: 3 }
+          ];
+        }
+      } catch (e) {
+        state.recipes = JSON.parse(JSON.stringify(INITIAL_RECIPES));
+        state.history = [];
+      }
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY_RECIPES, JSON.stringify(state.recipes));
+        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(state.history));
+      } catch (e) {
+        // Fallback silently in restricted iframe
+      }
+    }
+
+    function playChime(type) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const now = ctx.currentTime;
+        if (type === "cook") {
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.setValueAtTime(659.25, now + 0.08);
+          osc.frequency.setValueAtTime(783.99, now + 0.16);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        } else if (type === "timer") {
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.setValueAtTime(1046.5, now + 0.15);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+          osc.start(now);
+          osc.stop(now + 0.5);
+        }
+      } catch (e) {
+        // Ignore audio errors
+      }
+    }
+
+    let toastTimeout = null;
+    function showToast(msg, icon = "🎉") {
+      const box = document.getElementById("toastBox");
+      const iconEl = document.getElementById("toastIcon");
+      const msgEl = document.getElementById("toastMessage");
+      iconEl.textContent = icon;
+      msgEl.textContent = msg;
+      box.classList.remove("hidden");
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        box.classList.add("hidden");
+      }, 3200);
+    }
+
+    // =========================================================================
+    // 4. FREQUENCY SCORE & FILTER/SORT ENGINE
+    // =========================================================================
+    function getPreferenceScore(recipe) {
+      // Primary sort key: cookCount, tie-breaker: likeCount
+      return (recipe.cookCount || 0) * 100 + (recipe.likeCount || 0);
+    }
+
+    function getFilteredAndSortedRecipes() {
+      const q = state.search.trim().toLowerCase();
+      const ingKey = state.selectedIngredient.trim().toLowerCase();
+
+      let list = state.recipes.filter((r) => {
+        if (state.category !== "全部" && r.category !== state.category) {
+          return false;
+        }
+        if (state.freqFilter === "unexplored" && r.cookCount > 0) return false;
+        if (state.freqFilter === "low" && (r.cookCount < 1 || r.cookCount > 2)) return false;
+        if (state.freqFilter === "high" && r.cookCount < 3) return false;
+        if (state.maxTime > 0 && r.time > state.maxTime) return false;
+
+        if (ingKey) {
+          const inIngs = r.ingredients.some((i) => i.name.toLowerCase().includes(ingKey));
+          const inTags = (r.tags || []).some((t) => t.toLowerCase().includes(ingKey));
+          const inName = r.name.toLowerCase().includes(ingKey);
+          if (!inIngs && !inTags && !inName) return false;
+        }
+
+        if (q) {
+          const matchName = r.name.toLowerCase().includes(q);
+          const matchCat = r.category.toLowerCase().includes(q);
+          const matchTags = (r.tags || []).some((t) => t.toLowerCase().includes(q));
+          const matchIng = r.ingredients.some((i) => i.name.toLowerCase().includes(q));
+          if (!matchName && !matchCat && !matchTags && !matchIng) return false;
+        }
+        return true;
+      });
+
+      list.sort((a, b) => {
+        if (state.sortBy === "freq_desc") {
+          const diff = getPreferenceScore(b) - getPreferenceScore(a);
+          return diff !== 0 ? diff : a.time - b.time;
+        }
+        if (state.sortBy === "freq_asc") {
+          const diff = getPreferenceScore(a) - getPreferenceScore(b);
+          return diff !== 0 ? diff : a.time - b.time;
+        }
+        if (state.sortBy === "like_desc") {
+          const diff = (b.likeCount || 0) - (a.likeCount || 0);
+          return diff !== 0 ? diff : (b.cookCount || 0) - (a.cookCount || 0);
+        }
+        if (state.sortBy === "time_asc") {
+          return a.time - b.time;
+        }
+        return 0;
+      });
+
+      return list;
+    }
+
+    // =========================================================================
+    // 5. RENDERING UI COMPONENTS
+    // =========================================================================
+    function renderTopStats() {
+      const total = state.recipes.length || 1;
+      const highCount = state.recipes.filter((r) => r.cookCount >= 3).length;
+      const lowCount = state.recipes.filter((r) => r.cookCount >= 1 && r.cookCount <= 2).length;
+      const zeroCount = state.recipes.filter((r) => r.cookCount === 0).length;
+      const totalCooks = state.recipes.reduce((acc, r) => acc + (r.cookCount || 0), 0);
+
+      document.getElementById("statHighFreq").textContent = highCount;
+      document.getElementById("statLowFreq").textContent = lowCount;
+      document.getElementById("statUnexplored").textContent = zeroCount;
+      document.getElementById("totalCookBadge").textContent = totalCooks;
+
+      document.getElementById("barHighFreq").style.width = ((highCount / total) * 100).toFixed(1) + "%";
+      document.getElementById("barLowFreq").style.width = ((lowCount / total) * 100).toFixed(1) + "%";
+      document.getElementById("barUnexplored").style.width = ((zeroCount / total) * 100).toFixed(1) + "%";
+
+      const toggleDemoBtn = document.getElementById("toggleDemoDataBtn");
+      if (totalCooks > 0) {
+        toggleDemoBtn.textContent = "🧹 清零所有做菜次数 (从0开始)";
+      } else {
+        toggleDemoBtn.textContent = "✨ 载入示例频次数据 (体验排序对比)";
+      }
+    }
+
+    function renderFilterBars() {
+      // Categories
+      const catBar = document.getElementById("categoryFilterBar");
+      catBar.innerHTML = CATEGORIES.map((cat) => {
+        const count = cat === "全部"
+          ? state.recipes.length
+          : state.recipes.filter((r) => r.category === cat).length;
+        const active = state.category === cat;
+        return `
+          <button
+            type="button"
+            data-cat="${cat}"
+            class="cat-pill-btn px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+              active
+                ? "bg-stone-900 text-white shadow-sm"
+                : "bg-stone-100 text-stone-600 hover:bg-stone-200/80"
+            }"
+          >
+            <span>${cat}</span>
+            <span class="text-[10px] ${active ? "text-stone-300" : "text-stone-400"}">${count}</span>
+          </button>
+        `;
+      }).join("");
+
+      // Ingredients
+      const ingBar = document.getElementById("ingredientFilterBar");
+      ingBar.innerHTML = QUICK_INGREDIENTS.map((item) => {
+        const active = state.selectedIngredient === item.keyword;
+        return `
+          <button
+            type="button"
+            data-ing="${item.keyword}"
+            class="ing-pill-btn px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+              active
+                ? "bg-orange-500 text-white border-orange-600 font-bold shadow-sm"
+                : "bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100"
+            }"
+          >${item.label}</button>
+        `;
+      }).join("");
+
+      // Update Freq Filter active tab
+      document.querySelectorAll(".freq-tab-btn").forEach((btn) => {
+        const isAct = btn.getAttribute("data-freq") === state.freqFilter;
+        btn.className = `freq-tab-btn px-2.5 py-1 rounded-lg transition ${
+          isAct
+            ? "font-bold bg-white text-stone-900 shadow-sm"
+            : "font-medium text-stone-600 hover:text-stone-900"
+        }`;
+      });
+
+      // Update Column Switcher active state
+      document.querySelectorAll(".col-mode-btn").forEach((btn) => {
+        const c = parseInt(btn.getAttribute("data-cols"), 10);
+        const isAct = c === state.colsPerRow;
+        btn.className = `col-mode-btn px-2 py-1 rounded-lg transition ${
+          isAct
+            ? "font-bold bg-white text-stone-900 shadow-sm"
+            : "font-medium text-stone-600 hover:text-stone-900"
+        }`;
+      });
+    }
+
+    function getFreqMeta(cookCount) {
+      if (cookCount === 0) {
+        return {
+          badgeText: "✨ 待解锁新菜",
+          badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300",
+          cardClass: "dish-card-unexplored",
+          hint: "还没做过，今天试试它？"
+        };
+      }
+      if (cookCount <= 2) {
+        return {
+          badgeText: `🌱 尝鲜 ${cookCount} 次`,
+          badgeClass: "bg-sky-100 text-sky-800 border-sky-200",
+          cardClass: "border-stone-200 bg-white",
+          hint: `做过 ${cookCount} 次，正在熟悉中`
+        };
+      }
+      if (cookCount <= 4) {
+        return {
+          badgeText: `🔥 常做 ${cookCount} 次`,
+          badgeClass: "bg-amber-100 text-amber-900 border-amber-300",
+          cardClass: "dish-card-highfreq",
+          hint: `高频常吃，偶而换换新口味？`
+        };
+      }
+      return {
+        badgeText: `👑 拿手高频 ${cookCount} 次`,
+        badgeClass: "bg-orange-500 text-white border-orange-600",
+        cardClass: "dish-card-highfreq",
+        hint: `已做 ${cookCount} 次！强烈建议翻牌 0 次新菜`
+      };
+    }
+
+    function renderRecipeGrid() {
+      const container = document.getElementById("recipeGridContainer");
+      const emptyBox = document.getElementById("emptyStateBox");
+      const list = getFilteredAndSortedRecipes();
+
+      document.getElementById("visibleCountText").textContent = list.length;
+
+      // Explain current sort
+      const explainMap = {
+        freq_desc: "当前按【做菜次数+喜欢度】从高到低排序：排前面的高频菜提醒你“常吃这些”，绿色卡片则是待解锁新菜",
+        freq_asc: "当前按【探索新菜优先】排序：0 次未做过的新菜排在最前，帮你轻松打破重复菜单",
+        like_desc: "当前按【喜欢次数 ❤️】从高到低排序，展示全家最爱的保留曲目",
+        time_asc: "当前按【制作耗时】从短到长排序，工作日 10 分钟极速开饭"
+      };
+      document.getElementById("currentSortExplain").textContent = explainMap[state.sortBy] || "";
+
+      // Set column layout class (5 per row default)
+      container.className = `recipe-grid-${state.colsPerRow}`;
+
+      if (list.length === 0) {
+        container.innerHTML = "";
+        emptyBox.classList.remove("hidden");
+        return;
+      }
+      emptyBox.classList.add("hidden");
+
+      const maxCook = Math.max(5, ...state.recipes.map((r) => r.cookCount || 0));
+
+      container.innerHTML = list.map((r, idx) => {
+        const meta = getFreqMeta(r.cookCount || 0);
+        const starsStr = "★".repeat(r.stars || 1) + "☆".repeat(Math.max(0, 3 - (r.stars || 1)));
+        const freqPercent = Math.min(100, Math.round(((r.cookCount || 0) / maxCook) * 100));
+        const ingPreview = r.ingredients.slice(0, 4).map((i) => i.name).join(" · ");
+
+        return `
+          <article
+            data-recipe-card="${r.id}"
+            class="dish-card rounded-2xl border ${meta.cardClass} p-3 flex flex-col justify-between shadow-sm relative group"
+          >
+            <!-- Top Section -->
+            <div>
+              <!-- Header Badges -->
+              <div class="flex items-center justify-between gap-1 mb-2">
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-stone-100 text-stone-700 border border-stone-200/70">
+                  ${r.category}
+                </span>
+                <span class="px-2 py-0.5 text-[10px] font-extrabold rounded-full border ${meta.badgeClass}">
+                  ${meta.badgeText}
+                </span>
+              </div>
+
+              <!-- Dish Icon + Title -->
+              <div
+                data-open-recipe="${r.id}"
+                class="cursor-pointer flex items-start gap-2.5 my-1"
+              >
+                <div class="w-11 h-11 rounded-xl bg-amber-50/90 border border-amber-200/60 flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition">
+                  ${r.emoji || "🍲"}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1">
+                    <span class="text-[10px] font-mono font-bold text-stone-400">#${idx + 1}</span>
+                    <h3 class="text-sm font-extrabold text-stone-900 truncate group-hover:text-orange-600 transition" title="${r.name}">
+                      ${r.name}
+                    </h3>
+                  </div>
+                  <div class="flex items-center gap-2 text-[11px] text-stone-500 mt-0.5">
+                    <span>⏱ ${r.time}m</span>
+                    <span>·</span>
+                    <span>${r.calories}卡</span>
+                    <span>·</span>
+                    <span class="text-amber-600 font-semibold">${starsStr}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ingredient Preview & Tags -->
+              <p
+                data-open-recipe="${r.id}"
+                class="cursor-pointer text-[11px] text-stone-500 truncate mt-2 bg-stone-50/90 px-2 py-1 rounded-lg border border-stone-100"
+                title="配料：${ingPreview}"
+              >
+                配料: ${ingPreview}
+              </p>
+
+              <div class="flex flex-wrap gap-1 mt-2">
+                ${(r.tags || []).slice(0, 3).map((tag) => `
+                  <span class="px-1.5 py-0.5 text-[10px] rounded bg-stone-100/90 text-stone-600 font-medium">${tag}</span>
+                `).join("")}
+              </div>
+            </div>
+
+            <!-- Bottom Section: Frequency Progress & Quick Actions -->
+            <div class="mt-3 pt-2.5 border-t border-stone-200/70 space-y-2">
+              <!-- Frequency Reinforcement Bar -->
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="font-bold text-stone-700">
+                    🍳 做过 <strong class="text-orange-600 text-xs">${r.cookCount || 0}</strong> 次
+                  </span>
+                  <span class="font-bold text-rose-600">
+                    ❤️ 喜欢 <strong>${r.likeCount || 0}</strong>
+                  </span>
+                </div>
+                <div class="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all duration-300 ${
+                      r.cookCount === 0
+                        ? "bg-emerald-400 w-1"
+                        : r.cookCount >= 3
+                        ? "bg-gradient-to-r from-orange-500 to-rose-500"
+                        : "bg-amber-400"
+                    }"
+                    style="width: ${r.cookCount === 0 ? 6 : freqPercent}%"
+                  ></div>
+                </div>
+                <div class="text-[10px] text-stone-400 flex items-center justify-between">
+                  <span>${meta.hint}</span>
+                </div>
+              </div>
+
+              <!-- Action Buttons on Card -->
+              <div class="flex items-center gap-1.5 pt-0.5">
+                <button
+                  type="button"
+                  data-cook-inc="${r.id}"
+                  class="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-extrabold transition flex items-center justify-center gap-1 shadow-sm ${
+                    r.cookCount === 0
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                      : "bg-orange-500 text-white hover:bg-orange-600"
+                  }"
+                  title="记录今天做了这道菜，做菜次数与喜欢度+1"
+                >
+                  <span>${r.cookCount === 0 ? "✨ 解锁打卡+1" : "🍳 做菜+1"}</span>
+                </button>
+                <button
+                  type="button"
+                  data-like-inc="${r.id}"
+                  class="py-1.5 px-2 rounded-xl text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition"
+                  title="喜欢次数 +1"
+                >
+                  ❤️
+                </button>
+                <button
+                  type="button"
+                  data-open-recipe="${r.id}"
+                  class="py-1.5 px-2.5 rounded-xl text-[11px] font-bold bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200 transition"
+                  title="查看分步菜谱与计时跟做"
+                >
+                  步骤
+                </button>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderAll() {
+      renderTopStats();
+      renderFilterBars();
+      renderRecipeGrid();
+    }
+
+    // =========================================================================
+    // 6. COOKING COUNT, LIKE COUNT & SMART RECOMMENDATION ACTIONS
+    // =========================================================================
+    function incrementCookCount(recipeId, sourceLabel = "卡片打卡") {
+      const r = state.recipes.find((x) => x.id === recipeId);
+      if (!r) return;
+      const wasZero = (r.cookCount || 0) === 0;
+      r.cookCount = (r.cookCount || 0) + 1;
+      r.likeCount = (r.likeCount || 0) + 1;
+      r.lastCooked = "刚刚";
+
+      const nowStr = new Date().toLocaleString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+      state.history.unshift({
+        dishName: r.name,
+        emoji: r.emoji || "🍲",
+        date: nowStr,
+        countAfter: r.cookCount
+      });
+
+      saveToStorage();
+      playChime("cook");
+      renderAll();
+
+      if (state.activeRecipeId === recipeId) {
+        updateModalCounters(r);
+      }
+
+      if (wasZero) {
+        showToast(`🎉 恭喜解锁新菜【${r.name}】！已累计 1 次`, "🌱");
+      } else if (r.cookCount >= 4) {
+        showToast(`🔥【${r.name}】已做 ${r.cookCount} 次！下次不妨试试绿色边框的新菜~`, "🍳");
+      } else {
+        showToast(`✅ 已打卡【${r.name}】！做菜次数 ${r.cookCount} 次，喜欢度 +1`, "🍳");
+      }
+    }
+
+    function decrementCookCount(recipeId) {
+      const r = state.recipes.find((x) => x.id === recipeId);
+      if (!r) return;
+      if ((r.cookCount || 0) > 0) {
+        r.cookCount -= 1;
+      }
+      if ((r.likeCount || 0) > 0) {
+        r.likeCount -= 1;
+      }
+      saveToStorage();
+      renderAll();
+      if (state.activeRecipeId === recipeId) {
+        updateModalCounters(r);
+      }
+      showToast(`已将【${r.name}】做菜次数修正为 ${r.cookCount} 次`, "↩️");
+    }
+
+    function incrementLikeOnly(recipeId) {
+      const r = state.recipes.find((x) => x.id === recipeId);
+      if (!r) return;
+      r.likeCount = (r.likeCount || 0) + 1;
+      saveToStorage();
+      renderAll();
+      if (state.activeRecipeId === recipeId) {
+        updateModalCounters(r);
+      }
+      showToast(`❤️【${r.name}】喜欢次数 +1 (当前 ${r.likeCount})`, "❤️");
+    }
+
+    // Smart Picker 1: Pick a low-frequency / unexplored dish
+    function pickLowFrequencyDish() {
+      const unexplored = state.recipes.filter((r) => (r.cookCount || 0) === 0);
+      const pool = unexplored.length > 0
+        ? unexplored
+        : [...state.recipes].sort((a, b) => (a.cookCount || 0) - (b.cookCount || 0)).slice(0, 6);
+
+      const chosen = pool[Math.floor(Math.random() * pool.length)];
+      if (!chosen) return;
+
+      state.recommendedIds = [chosen.id];
+      showRecommendationBanner(
+        "🌱 新菜探索推荐",
+        `今天强烈推荐解锁：【${chosen.emoji} ${chosen.name}】`,
+        `这道菜目前仅做过 ${chosen.cookCount || 0} 次（耗时 ${chosen.time} 分钟，难度：${chosen.difficulty}）。换换新口味，打破高频菜重复循环！`,
+        [chosen]
+      );
+    }
+
+    // Smart Picker 2: Generate balanced 3-dish meal (1 Meat + 1 Veg + 1 Soup/Staple) prioritizing low cookCount
+    function pickBalancedMealCombo() {
+      const pickLowestRand = (arr) => {
+        if (!arr.length) return null;
+        const sorted = [...arr].sort((a, b) => (a.cookCount || 0) - (b.cookCount || 0));
+        const topCandidates = sorted.slice(0, Math.min(4, sorted.length));
+        return topCandidates[Math.floor(Math.random() * topCandidates.length)];
+      };
+
+      const meats = state.recipes.filter((r) => r.category === "荤菜" || r.category === "水产");
+      const vegs = state.recipes.filter((r) => r.category === "素菜");
+      const soups = state.recipes.filter((r) => r.category === "汤羹" || r.category === "主食");
+
+      const combo = [pickLowestRand(meats), pickLowestRand(vegs), pickLowestRand(soups)].filter(Boolean);
+      state.recommendedIds = combo.map((c) => c.id);
+
+      const totalTime = combo.reduce((s, r) => s + r.time, 0);
+      const newCount = combo.filter((r) => (r.cookCount || 0) === 0).length;
+
+      showRecommendationBanner(
+        "🍱 今日一荤一素一汤智能搭配",
+        `为您搭配好今日菜单（含 ${newCount} 道 0 次待解锁新菜）`,
+        `优先挑选了您平时较少做的菜品组合，预计总备餐约 ${totalTime} 分钟。点击卡片可查看分步菜谱，或直接一键打卡！`,
+        combo
+      );
+    }
+
+    // Smart Picker 3: Pure random dish
+    function pickRandomDish() {
+      const list = getFilteredAndSortedRecipes();
+      const pool = list.length > 0 ? list : state.recipes;
+      const chosen = pool[Math.floor(Math.random() * pool.length)];
+      if (!chosen) return;
+      state.recommendedIds = [chosen.id];
+      showRecommendationBanner(
+        "🎲 随机摇一摇结果",
+        `今天吃：【${chosen.emoji} ${chosen.name}】`,
+        `分类：${chosen.category} · 耗时 ${chosen.time} 分钟 · 历史已做 ${chosen.cookCount || 0} 次`,
+        [chosen]
+      );
+    }
+
+    function showRecommendationBanner(badge, title, desc, dishes) {
+      const banner = document.getElementById("recommendationBanner");
+      document.getElementById("recBannerBadge").textContent = badge;
+      document.getElementById("recBannerTitle").textContent = title;
+      document.getElementById("recBannerDesc").textContent = desc;
+
+      const cardsBox = document.getElementById("recBannerCards");
+      cardsBox.innerHTML = dishes.map((r) => `
+        <div class="bg-white rounded-xl p-2.5 border border-emerald-200/90 flex items-center justify-between gap-2 shadow-sm">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-2xl">${r.emoji || "🍲"}</span>
+            <div class="min-w-0">
+              <div class="text-xs font-extrabold text-stone-900 truncate">${r.name}</div>
+              <div class="text-[11px] text-stone-500">${r.category} · ${r.time}m · 已做 ${r.cookCount || 0} 次</div>
+            </div>
+          </div>
+          <button
+            type="button"
+            data-open-recipe="${r.id}"
+            class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-stone-900 text-white hover:bg-stone-800 shrink-0"
+          >看菜谱</button>
+        </div>
+      `).join("");
+
+      banner.classList.remove("hidden");
+    }
+
+    // =========================================================================
+    // 7. RECIPE DETAIL MODAL & IMMERSIVE STEP-BY-STEP COOK MODE
+    // =========================================================================
+    function openRecipeModal(recipeId) {
+      const r = state.recipes.find((x) => x.id === recipeId);
+      if (!r) return;
+
+      stopStepTimer();
+      state.activeRecipeId = recipeId;
+      state.portionMultiplier = 1;
+      state.checkedIngredients = {};
+      state.modalTab = "overview";
+      state.immStepIndex = 0;
+
+      document.getElementById("modalDishEmoji").textContent = r.emoji || "🍲";
+      document.getElementById("modalDishCategory").textContent = r.category;
+      const meta = getFreqMeta(r.cookCount || 0);
+      const badgeEl = document.getElementById("modalFreqBadge");
+      badgeEl.textContent = meta.badgeText;
+      badgeEl.className = `px-2 py-0.5 text-[11px] font-bold rounded-md border ${meta.badgeClass}`;
+
+      document.getElementById("modalDishTitle").textContent = r.name;
+      document.getElementById("modalDishDesc").textContent = `标签：${(r.tags || []).join(" / ")} · 上次做菜：${r.lastCooked || "未记录"}`;
+      document.getElementById("modalMetricTime").textContent = `⏱ ${r.time} 分钟`;
+      document.getElementById("modalMetricCal").textContent = `🔥 ${r.calories} KCAL`;
+      document.getElementById("modalMetricDiff").textContent = `⭐ 难度：${r.difficulty}`;
+
+      updateModalCounters(r);
+      renderModalOverview(r);
+      switchModalTab("overview");
+
+      document.getElementById("recipeModal").classList.remove("hidden");
+    }
+
+    function updateModalCounters(r) {
+      document.getElementById("modalCookCountText").textContent = r.cookCount || 0;
+      document.getElementById("modalLikeCountText").textContent = r.likeCount || 0;
+    }
+
+    function renderModalOverview(r) {
+      document.getElementById("portionValueText").textContent = `${state.portionMultiplier}人份`;
+
+      // Ingredients with portion scaling & checklist
+      const ingBox = document.getElementById("modalIngredientsList");
+      ingBox.innerHTML = r.ingredients.map((ing, idx) => {
+        const checked = !!state.checkedIngredients[idx];
+        const scaledAmt = Math.round(ing.amount * state.portionMultiplier * 10) / 10;
+        return `
+          <label class="flex items-center justify-between p-2 rounded-lg bg-white border border-stone-200/80 cursor-pointer hover:border-orange-300 transition">
+            <div class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                data-ing-check="${idx}"
+                ${checked ? "checked" : ""}
+                class="rounded text-orange-500 focus:ring-orange-500"
+              />
+              <span class="text-xs font-semibold ${checked ? "line-through text-stone-400" : "text-stone-800"}">${ing.name}</span>
+            </div>
+            <span class="text-xs font-mono font-bold text-orange-600">${scaledAmt} ${ing.unit}</span>
+          </label>
+        `;
+      }).join("");
+
+      // Tools
+      const toolsBox = document.getElementById("modalToolsList");
+      toolsBox.innerHTML = (r.tools || ["炒锅", "菜刀", "砧板"]).map((t) => `
+        <span class="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-semibold text-stone-700">${t}</span>
+      `).join("");
+
+      // Steps list
+      const stepsBox = document.getElementById("modalStepsList");
+      stepsBox.innerHTML = r.steps.map((s, idx) => `
+        <div class="p-3.5 rounded-xl bg-stone-50 border border-stone-200/80 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-stone-900 text-white text-[11px] font-bold flex items-center justify-center">
+                ${idx + 1}
+              </span>
+              <h4 class="text-xs font-extrabold text-stone-900">${s.title}</h4>
+            </div>
+            <span class="text-[11px] font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-200/60">
+              ⏱ ${s.time} min
+            </span>
+          </div>
+          <p class="text-xs text-stone-700 leading-relaxed pl-7">${s.desc}</p>
+          <div class="pl-7 pt-1 flex flex-wrap gap-2 text-[11px]">
+            <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/60">🎯 产出: ${s.output || "完成本步"}</span>
+            <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200/60">💡 提示: ${s.tip || "注意火候"}</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function switchModalTab(tab) {
+      state.modalTab = tab;
+      const ovSec = document.getElementById("modalOverviewSection");
+      const imSec = document.getElementById("modalImmersiveSection");
+      const btnOv = document.getElementById("tabOverviewBtn");
+      const btnIm = document.getElementById("tabImmersiveBtn");
+
+      if (tab === "overview") {
+        ovSec.classList.remove("hidden");
+        imSec.classList.add("hidden");
+        btnOv.className = "px-3 py-1.5 rounded-lg font-bold bg-white text-stone-900 shadow-sm transition";
+        btnIm.className = "px-3 py-1.5 rounded-lg font-semibold text-stone-600 hover:text-stone-900 transition";
+        stopStepTimer();
+      } else {
+        ovSec.classList.add("hidden");
+        imSec.classList.remove("hidden");
+        btnIm.className = "px-3 py-1.5 rounded-lg font-bold bg-white text-stone-900 shadow-sm transition";
+        btnOv.className = "px-3 py-1.5 rounded-lg font-semibold text-stone-600 hover:text-stone-900 transition";
+        renderImmersiveStep();
+      }
+    }
+
+    function renderImmersiveStep() {
+      const r = state.recipes.find((x) => x.id === state.activeRecipeId);
+      if (!r || !r.steps.length) return;
+
+      stopStepTimer();
+      const total = r.steps.length;
+      const idx = Math.max(0, Math.min(total - 1, state.immStepIndex));
+      state.immStepIndex = idx;
+      const step = r.steps[idx];
+
+      document.getElementById("immStepCounter").textContent = `STEP 0${idx + 1} / 0${total}`;
+      document.getElementById("immStepTimeBadge").textContent = `本步预计耗时 ${step.time} 分钟`;
+      document.getElementById("immStepTitle").textContent = step.title;
+      document.getElementById("immStepInstruction").textContent = step.desc;
+      document.getElementById("immStepOutput").textContent = step.output || "完成当前工序";
+      document.getElementById("immStepTip").textContent = step.tip || "保持中小火稳定操作";
+
+      state.timerSecondsLeft = (step.time || 1) * 60;
+      updateTimerDisplay();
+
+      document.getElementById("immPrevStepBtn").disabled = idx === 0;
+      const nextBtn = document.getElementById("immNextStepBtn");
+      if (idx === total - 1) {
+        nextBtn.textContent = "🎉 已到最后一步";
+      } else {
+        nextBtn.textContent = "下一步 →";
+      }
+
+      const dotsBox = document.getElementById("immStepDots");
+      dotsBox.innerHTML = r.steps.map((_, i) => `
+        <button
+          type="button"
+          data-imm-dot="${i}"
+          class="w-2.5 h-2.5 rounded-full transition ${i === idx ? "bg-orange-500 scale-125" : "bg-stone-300 hover:bg-stone-400"}"
+        ></button>
+      `).join("");
+    }
+
+    function updateTimerDisplay() {
+      const mins = String(Math.floor(state.timerSecondsLeft / 60)).padStart(2, "0");
+      const secs = String(state.timerSecondsLeft % 60).padStart(2, "0");
+      document.getElementById("immTimerDisplay").textContent = `${mins}:${secs}`;
+      const toggleBtn = document.getElementById("immTimerToggleBtn");
+      toggleBtn.textContent = state.timerRunning ? "⏸ 暂停" : "▶ 开始计时";
+    }
+
+    function toggleStepTimer() {
+      if (state.timerRunning) {
+        stopStepTimer();
+      } else {
+        state.timerRunning = true;
+        updateTimerDisplay();
+        state.timerIntervalId = setInterval(() => {
+          if (state.timerSecondsLeft > 0) {
+            state.timerSecondsLeft -= 1;
+            updateTimerDisplay();
+          } else {
+            stopStepTimer();
+            playChime("timer");
+            showToast("⏰ 本步骤计时完成！可以进入下一步啦", "🔔");
+          }
+        }, 1000);
+      }
+    }
+
+    function stopStepTimer() {
+      state.timerRunning = false;
+      if (state.timerIntervalId) {
+        clearInterval(state.timerIntervalId);
+        state.timerIntervalId = null;
+      }
+      const btn = document.getElementById("immTimerToggleBtn");
+      if (btn) btn.textContent = "▶ 开始计时";
+    }
+
+    // =========================================================================
+    // 8. HISTORY & DATA BACKUP MODALS
+    // =========================================================================
+    function renderHistoryModal() {
+      const box = document.getElementById("historyListContainer");
+      if (!state.history.length) {
+        box.innerHTML = `<div class="text-center py-8 text-stone-400">暂无打卡记录，快去点击菜品卡片上的【做菜+1】吧！</div>`;
+        return;
+      }
+      box.innerHTML = state.history.map((h) => `
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 border border-stone-200/80">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xl">${h.emoji || "🍲"}</span>
+            <div>
+              <div class="font-bold text-stone-900">${h.dishName}</div>
+              <div class="text-[11px] text-stone-500">${h.date}</div>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 font-bold text-[11px]">
+            累计第 ${h.countAfter} 次做
+          </span>
+        </div>
+      `).join("");
+    }
+
+    // =========================================================================
+    // 9. EVENT LISTENERS & INITIALIZATION
+    // =========================================================================
+    function initEvents() {
+      // Search input
+      const searchInput = document.getElementById("searchInput");
+      const clearSearchBtn = document.getElementById("clearSearchBtn");
+      searchInput.addEventListener("input", (e) => {
+        state.search = e.target.value;
+        clearSearchBtn.classList.toggle("hidden", !state.search);
+        renderRecipeGrid();
+      });
+      clearSearchBtn.addEventListener("click", () => {
+        state.search = "";
+        searchInput.value = "";
+        clearSearchBtn.classList.add("hidden");
+        renderRecipeGrid();
+      });
+
+      // Sort & Time selects
+      document.getElementById("sortSelect").addEventListener("change", (e) => {
+        state.sortBy = e.target.value;
+        renderRecipeGrid();
+      });
+      document.getElementById("timeFilterSelect").addEventListener("change", (e) => {
+        state.maxTime = parseInt(e.target.value, 10) || 0;
+        renderRecipeGrid();
+      });
+
+      // Reset filters
+      const resetAllFilters = () => {
+        state.search = "";
+        state.category = "全部";
+        state.freqFilter = "all";
+        state.selectedIngredient = "";
+        state.maxTime = 0;
+        document.getElementById("searchInput").value = "";
+        document.getElementById("clearSearchBtn").classList.add("hidden");
+        document.getElementById("timeFilterSelect").value = "0";
+        renderAll();
+      };
+      document.getElementById("resetFiltersBtn").addEventListener("click", resetAllFilters);
+      document.getElementById("emptyResetBtn").addEventListener("click", resetAllFilters);
+
+      // Smart Picker buttons
+      document.getElementById("pickNewDishBtn").addEventListener("click", pickLowFrequencyDish);
+      document.getElementById("pickMealComboBtn").addEventListener("click", pickBalancedMealCombo);
+      document.getElementById("pickRandomAnyBtn").addEventListener("click", pickRandomDish);
+      document.getElementById("closeRecBannerBtn").addEventListener("click", () => {
+        document.getElementById("recommendationBanner").classList.add("hidden");
+      });
+      document.getElementById("recCookAllBtn").addEventListener("click", () => {
+        if (!state.recommendedIds.length) return;
+        state.recommendedIds.forEach((id) => incrementCookCount(id, "智能推荐打卡"));
+        document.getElementById("recommendationBanner").classList.add("hidden");
+      });
+
+      // Toggle Clear All Counts / Restore Demo Counts
+      document.getElementById("toggleDemoDataBtn").addEventListener("click", () => {
+        const totalCooks = state.recipes.reduce((acc, r) => acc + (r.cookCount || 0), 0);
+        if (totalCooks > 0) {
+          state.recipes.forEach((r) => {
+            r.cookCount = 0;
+            r.likeCount = 0;
+            r.lastCooked = "从未做过";
+          });
+          state.history = [];
+          saveToStorage();
+          renderAll();
+          showToast("🧹 已将所有菜品做菜次数与喜欢次数清零！现在可以从零开始记录", "✨");
+        } else {
+          const demoMap = { r1: [6, 8], r2: [4, 5], r3: [3, 5], r4: [2, 3], r5: [1, 2] };
+          state.recipes.forEach((r) => {
+            if (demoMap[r.id]) {
+              r.cookCount = demoMap[r.id][0];
+              r.likeCount = demoMap[r.id][1];
+              r.lastCooked = "近期示例";
+            }
+          });
+          saveToStorage();
+          renderAll();
+          showToast("✨ 已恢复示例频次数据，直观感受高低频对比排序！", "🔥");
+        }
+      });
+
+      // Delegated clicks for Filter bars, Recipe Grid, and Modals
+      document.body.addEventListener("click", (e) => {
+        const catBtn = e.target.closest("[data-cat]");
+        if (catBtn) {
+          state.category = catBtn.getAttribute("data-cat");
+          renderAll();
+          return;
+        }
+
+        const ingBtn = e.target.closest("[data-ing]");
+        if (ingBtn) {
+          const kw = ingBtn.getAttribute("data-ing");
+          state.selectedIngredient = state.selectedIngredient === kw ? "" : kw;
+          renderAll();
+          return;
+        }
+
+        const freqBtn = e.target.closest("[data-freq]");
+        if (freqBtn) {
+          state.freqFilter = freqBtn.getAttribute("data-freq");
+          renderAll();
+          return;
+        }
+
+        const colBtn = e.target.closest("[data-cols]");
+        if (colBtn) {
+          state.colsPerRow = parseInt(colBtn.getAttribute("data-cols"), 10) || 5;
+          renderAll();
+          return;
+        }
+
+        const cookIncBtn = e.target.closest("[data-cook-inc]");
+        if (cookIncBtn) {
+          e.stopPropagation();
+          incrementCookCount(cookIncBtn.getAttribute("data-cook-inc"));
+          return;
+        }
+
+        const likeIncBtn = e.target.closest("[data-like-inc]");
+        if (likeIncBtn) {
+          e.stopPropagation();
+          incrementLikeOnly(likeIncBtn.getAttribute("data-like-inc"));
+          return;
+        }
+
+        const openRecEl = e.target.closest("[data-open-recipe]");
+        if (openRecEl) {
+          openRecipeModal(openRecEl.getAttribute("data-open-recipe"));
+          return;
+        }
+
+        const dotBtn = e.target.closest("[data-imm-dot]");
+        if (dotBtn) {
+          state.immStepIndex = parseInt(dotBtn.getAttribute("data-imm-dot"), 10) || 0;
+          renderImmersiveStep();
+          return;
+        }
+      });
+
+      // Ingredient checklist toggle inside modal
+      document.getElementById("modalIngredientsList").addEventListener("change", (e) => {
+        const chk = e.target.closest("[data-ing-check]");
+        if (chk) {
+          const idx = chk.getAttribute("data-ing-check");
+          state.checkedIngredients[idx] = chk.checked;
+          const r = state.recipes.find((x) => x.id === state.activeRecipeId);
+          if (r) renderModalOverview(r);
+        }
+      });
+
+      // Modal Controls
+      document.getElementById("closeRecipeModalBtn").addEventListener("click", () => {
+        stopStepTimer();
+        document.getElementById("recipeModal").classList.add("hidden");
+      });
+      document.getElementById("tabOverviewBtn").addEventListener("click", () => switchModalTab("overview"));
+      document.getElementById("tabImmersiveBtn").addEventListener("click", () => switchModalTab("immersive"));
+      document.getElementById("startImmersiveFromOverviewBtn").addEventListener("click", () => switchModalTab("immersive"));
+
+      document.getElementById("portionDecBtn").addEventListener("click", () => {
+        if (state.portionMultiplier > 1) {
+          state.portionMultiplier -= 1;
+          const r = state.recipes.find((x) => x.id === state.activeRecipeId);
+          if (r) renderModalOverview(r);
+        }
+      });
+      document.getElementById("portionIncBtn").addEventListener("click", () => {
+        if (state.portionMultiplier < 10) {
+          state.portionMultiplier += 1;
+          const r = state.recipes.find((x) => x.id === state.activeRecipeId);
+          if (r) renderModalOverview(r);
+        }
+      });
+
+      document.getElementById("immPrevStepBtn").addEventListener("click", () => {
+        if (state.immStepIndex > 0) {
+          state.immStepIndex -= 1;
+          renderImmersiveStep();
+        }
+      });
+      document.getElementById("immNextStepBtn").addEventListener("click", () => {
+        const r = state.recipes.find((x) => x.id === state.activeRecipeId);
+        if (!r) return;
+        if (state.immStepIndex < r.steps.length - 1) {
+          state.immStepIndex += 1;
+          renderImmersiveStep();
+        } else {
+          showToast("🎉 已完成所有步骤！点击右下角按钮打卡做菜次数吧", "👨‍🍳");
+        }
+      });
+      document.getElementById("immTimerToggleBtn").addEventListener("click", toggleStepTimer);
+      document.getElementById("immTimerResetBtn").addEventListener("click", () => {
+        const r = state.recipes.find((x) => x.id === state.activeRecipeId);
+        if (!r) return;
+        stopStepTimer();
+        const step = r.steps[state.immStepIndex];
+        state.timerSecondsLeft = (step ? step.time : 1) * 60;
+        updateTimerDisplay();
+      });
+
+      document.getElementById("modalCompleteCookBtn").addEventListener("click", () => {
+        if (state.activeRecipeId) {
+          incrementCookCount(state.activeRecipeId, "菜谱详情打卡");
+        }
+      });
+      document.getElementById("modalLikeOnlyBtn").addEventListener("click", () => {
+        if (state.activeRecipeId) {
+          incrementLikeOnly(state.activeRecipeId);
+        }
+      });
+      document.getElementById("modalMinusCookBtn").addEventListener("click", () => {
+        if (state.activeRecipeId) {
+          decrementCookCount(state.activeRecipeId);
+        }
+      });
+
+      // Add Custom Recipe Modal
+      const addModal = document.getElementById("addRecipeModal");
+      document.getElementById("openAddModalBtn").addEventListener("click", () => addModal.classList.remove("hidden"));
+      document.getElementById("closeAddModalBtn").addEventListener("click", () => addModal.classList.add("hidden"));
+      document.getElementById("cancelAddModalBtn").addEventListener("click", () => addModal.classList.add("hidden"));
+      document.getElementById("addRecipeForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const name = document.getElementById("newDishName").value.trim();
+        if (!name) return;
+        const category = document.getElementById("newDishCategory").value;
+        const time = parseInt(document.getElementById("newDishTime").value, 10) || 20;
+        const calories = parseInt(document.getElementById("newDishCal").value, 10) || 350;
+        const emoji = document.getElementById("newDishEmoji").value.trim() || "🥘";
+        const tagsRaw = document.getElementById("newDishTags").value;
+        const ingsRaw = document.getElementById("newDishIngs").value;
+        const stepsRaw = document.getElementById("newDishSteps").value;
+
+        const tags = tagsRaw.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+        const ingredients = ingsRaw.split(/[,，]/).map((s) => {
+          const parts = s.trim().split(/\s+/);
+          return {
+            name: parts[0] || "食材",
+            amount: parseFloat(parts[1]) || 1,
+            unit: (parts[1] || "份").replace(/[0-9.]/g, "") || "份"
+          };
+        }).filter((i) => i.name);
+
+        const steps = stepsRaw.split(/\n/).map((line, i) => ({
+          title: `步骤 ${i + 1}`,
+          time: Math.max(2, Math.round(time / 3)),
+          desc: line.trim(),
+          output: "完成当前步骤",
+          tip: "注意火候控制"
+        })).filter((s) => s.desc);
+
+        const newDish = {
+          id: "custom_" + Date.now(),
+          name,
+          category,
+          emoji,
+          time,
+          calories,
+          difficulty: time > 40 ? "有点难" : "简单",
+          stars: time > 40 ? 3 : 1,
+          cookCount: 0,
+          likeCount: 0,
+          lastCooked: "从未做过",
+          tags: tags.length ? tags : ["私房菜", "自建食谱"],
+          tools: ["炒锅", "菜刀", "砧板"],
+          ingredients: ingredients.length ? ingredients : [{ name: "主料", amount: 1, unit: "份" }],
+          steps: steps.length ? steps : [{ title: "制作", time: 10, desc: "按个人口味烹制即可", output: "美味成品", tip: "趁热享用" }]
+        };
+
+        state.recipes.unshift(newDish);
+        saveToStorage();
+        renderAll();
+        addModal.classList.add("hidden");
+        e.target.reset();
+        showToast(`➕ 已添加私房菜【${name}】！初始为 0 次待解锁状态`, "🎉");
+      });
+
+      // History Modal
+      const histModal = document.getElementById("historyModal");
+      document.getElementById("openHistoryModalBtn").addEventListener("click", () => {
+        renderHistoryModal();
+        histModal.classList.remove("hidden");
+      });
+      document.getElementById("closeHistoryModalBtn").addEventListener("click", () => histModal.classList.add("hidden"));
+      document.getElementById("doneHistoryModalBtn").addEventListener("click", () => histModal.classList.add("hidden"));
+      document.getElementById("clearHistoryBtn").addEventListener("click", () => {
+        state.history = [];
+        saveToStorage();
+        renderHistoryModal();
+        showToast("已清空历史打卡日志", "🗑️");
+      });
+
+      // Data Backup Modal
+      const dataModal = document.getElementById("dataModal");
+      document.getElementById("openDataModalBtn").addEventListener("click", () => {
+        const payload = JSON.stringify({ recipes: state.recipes, history: state.history }, null, 2);
+        document.getElementById("importJsonTextarea").value = payload;
+        dataModal.classList.remove("hidden");
+      });
+      document.getElementById("closeDataModalBtn").addEventListener("click", () => dataModal.classList.add("hidden"));
+
+      document.getElementById("exportJsonBtn").addEventListener("click", () => {
+        const payload = JSON.stringify({ recipes: state.recipes, history: state.history }, null, 2);
+        const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "vibe_cook_offline_backup.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast("⬇️ 已导出离线备份 JSON 文件", "💾");
+      });
+
+      document.getElementById("copyJsonBtn").addEventListener("click", () => {
+        const textarea = document.getElementById("importJsonTextarea");
+        textarea.select();
+        try {
+          document.execCommand("copy");
+          showToast("📋 已复制 JSON 数据到剪贴板", "✅");
+        } catch (e) {
+          showToast("请手动全选文本框复制", "ℹ️");
+        }
+      });
+
+      document.getElementById("restoreDemoBtn").addEventListener("click", () => {
+        state.recipes = JSON.parse(JSON.stringify(INITIAL_RECIPES));
+        state.history = [
+          { dishName: "西红柿炒鸡蛋", emoji: "🍅", date: "示例记录 · 2天前", countAfter: 6 },
+          { dishName: "鸡蛋火腿炒黄瓜", emoji: "🥒", date: "示例记录 · 4天前", countAfter: 4 },
+          { dishName: "黄焖鸡", emoji: "🍗", date: "示例记录 · 上周", countAfter: 3 }
+        ];
+        saveToStorage();
+        renderAll();
+        dataModal.classList.add("hidden");
+        showToast("🔄 已恢复全套 25 道初始菜谱与示例频次", "✅");
+      });
+
+      document.getElementById("importJsonBtn").addEventListener("click", () => {
+        const raw = document.getElementById("importJsonTextarea").value.trim();
+        if (!raw) return;
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed.recipes)) {
+            state.recipes = parsed.recipes;
+            state.history = Array.isArray(parsed.history) ? parsed.history : [];
+            saveToStorage();
+            renderAll();
+            dataModal.classList.add("hidden");
+            showToast("⬆️ 数据导入成功！", "✅");
+          } else {
+            showToast("JSON 格式不正确：缺少 recipes 数组", "⚠️");
+          }
+        } catch (e) {
+          showToast("JSON 解析失败，请检查格式", "⚠️");
+        }
+      });
+    }
+
+    // Boot App
+    loadFromStorage();
+    initEvents();
+    renderAll();
+  </script>
+</body>
+</html>
